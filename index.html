@@ -6,8 +6,23 @@
   <title>Monad DEX — USDC ↔ BitcoinFlash (BFL) — Live</title>
   <style>
     /* Styling (kept compact) */
-    :root{--bg:#0B1220;--card:#0E1A2B;--text:#E6F0FF;--muted:#98A0B3;--accent:#0066FF;--border:rgba(255,255,255,0.08)}
-    *{box-sizing:border-box} body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,#071126,#041124);color:var(--text);margin:0;padding:20px}
+    :root{
+      --bg:#0B1220;
+      --card:#0E1A2B;
+      --text:#E6F0FF;
+      --muted:#98A0B3;
+      --accent:#0066FF;
+      --border:rgba(255,255,255,0.08);
+
+      /* Log colors */
+      --log-info: #00E5FF;
+      --log-warning: #FFB300;
+      --log-error: #FF1744;
+      --log-debug: #9C27FF;
+      --log-trace: #9AA0A6;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,#071126,#041124);color:var(--text);margin:0;padding:20px}
     .container{max-width:1200px;margin:0 auto}
     header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);margin-bottom:18px}
     h1{margin:0;font-size:20px;background:linear-gradient(90deg,#60A5FA,#22D3EE);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -20,11 +35,14 @@
     .token-input{display:flex;gap:12px;align-items:center;padding:8px;background:rgba(255,255,255,0.02);border-radius:10px}
     input,select{background:transparent;border:0;color:var(--text);outline:none}
     .stat{font-family:monospace;color:#cfe8ff}
-    pre{background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;color:#a5f3fc;max-height:220px;overflow:auto}
+    pre#log{background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;color:var(--log-info);max-height:260px;overflow:auto;white-space:pre-wrap}
     .small{font-size:13px;color:var(--muted)}
     .token-logo{width:36px;height:36px;border-radius:8px;object-fit:cover}
     @media(max-width:980px){.main-grid{grid-template-columns:1fr}}
     .price-badge{font-family:monospace;color:#bfe6ff;margin-left:12px}
+    /* Log entry styles */
+    .log-entry { display:block; margin-bottom:6px; line-height:1.4; }
+    .log-time { color: var(--muted); margin-right:6px; font-family:monospace; }
   </style>
 </head>
 <body>
@@ -156,14 +174,12 @@
 
   <!-- External libs -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-  <!-- Web3Auth modal (optional social login). Remove if you don't want it. -->
   <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@1.14.0/dist/index.umd.min.js"></script>
 
   <!-- Main logic: reads via Alchemy, writes via connected wallet (MetaMask or Web3Auth) -->
   <script>
   (async function(){
     // ------------- CONFIG -------------
-    // Replace the ALCHEMY_RPC value with your new key if the one below has been exposed.
     const ALCHEMY_RPC = "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk";
     const CHAIN_ID = 143;
     const POLL_MS = 15_000;
@@ -174,7 +190,6 @@
       PAIR: "0x57489A99059A41464fE9322864E3B241D96c5d62".toLowerCase()
     };
 
-    // Public Web3Auth clientId (safe to embed). If you don't want Web3Auth, ignore.
     const WEB3AUTH_CLIENT_ID = "BAsUqhgvieRUFYc8vZwFEUWTn4ThFZCrToMc76Vi-_Jgu1C26Udu3B4ESLjx1d2-kb8ca9hFUdR0U3D_45PgfPc";
 
     const ABIS = {
@@ -194,14 +209,27 @@
       ]
     };
 
-    // DOM helpers
+    // DOM helper
     const $ = id => document.getElementById(id);
-    const log = (m) => {
-      const el = $("log");
-      const msg = `[${new Date().toLocaleTimeString()}] ${m}`;
-      if (el) el.textContent = msg + "\n" + el.textContent;
-      console.log(msg);
-    };
+
+    // Enhanced log with color/type
+    function log(message, type = "info") {
+      const logEl = $("log");
+      const time = new Date().toLocaleTimeString();
+      const safeMsg = String(message);
+      const colorMap = {
+        info: "var(--log-info)",
+        warning: "var(--log-warning)",
+        error: "var(--log-error)",
+        debug: "var(--log-debug)",
+        trace: "var(--log-trace)"
+      };
+      const color = colorMap[type] || colorMap.info;
+      const entry = `<div class="log-entry"><span class="log-time">[${time}]</span><span style="color:${color}">${escapeHtml(safeMsg)}</span></div>`;
+      if (logEl) logEl.innerHTML = entry + logEl.innerHTML;
+      console.log(`[${time}] ${safeMsg}`);
+    }
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
     // read provider => Alchemy (stable for reads)
     const readProvider = new ethers.JsonRpcProvider(ALCHEMY_RPC, { name: "monad", chainId: CHAIN_ID });
@@ -235,28 +263,51 @@
     }
 
     // -------------------------
+    // sendWithPendingRetry helper
+    // -------------------------
+    async function sendWithPendingRetry(fn, retries = 10, delayMs = 3000) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const tx = await fn();
+          return tx;
+        } catch (err) {
+          // user rejected
+          if (err && (err.code === 4001 || (err.error && err.error.code === 4001))) {
+            throw err;
+          }
+          const isPendingErr = err && (err.code === -32002 || (err.message && err.message.toLowerCase().includes('already pending')));
+          if (!isPendingErr) throw err;
+          if (attempt === retries) {
+            throw err;
+          }
+          log(`Wallet reports a pending request. Waiting ${Math.round(delayMs/1000)}s before retry (attempt ${attempt+1}/${retries})...`, "warning");
+          // show short UI tip by logging as warning; user still must check wallet
+          await new Promise(res => setTimeout(res, delayMs));
+          delayMs = Math.min(30000, Math.floor(delayMs * 1.5));
+        }
+      }
+    }
+
+    // -------------------------
     // Robust raw-getReserves parser (handles 2 or 3 return words)
     // -------------------------
     async function loadPair(){
       try{
         const pairAddr = ADDRESSES.PAIR;
-        // call token0/token1 normally
         const pairContract = new ethers.Contract(pairAddr, ["function token0() view returns (address)", "function token1() view returns (address)"], readProvider);
         const [t0, t1] = await Promise.all([pairContract.token0(), pairContract.token1()]);
 
-        // build iface for getReserves (we'll encode then call raw)
         const iface = new ethers.Interface([ "function getReserves() view returns (uint112,uint112,uint32)" ]);
         const data = iface.encodeFunctionData("getReserves", []);
         const raw = await readProvider.call({ to: pairAddr, data });
 
         if (!raw || raw === "0x") throw new Error("empty getReserves result");
         const hex = raw.slice(2);
-        const wordLen = 64; // 32 bytes = 64 hex chars
+        const wordLen = 64;
         const words = [];
         for (let i = 0; i < hex.length; i += wordLen) {
           words.push(hex.slice(i, i + wordLen));
         }
-        // parse r0, r1 from first two words
         const r0 = BigInt("0x" + (words[0] || "0"));
         const r1 = BigInt("0x" + (words[1] || "0"));
 
@@ -274,14 +325,14 @@
         if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(r1, pairInfo.dec1);
 
         updatePrice();
-        log("Pair loaded (raw parser)");
+        log("Pair loaded (raw parser)", "debug");
       }catch(e){
-        log("loadPair error: " + (e && e.message ? e.message : String(e)));
+        log("loadPair error: " + (e && e.message ? e.message : String(e)), "error");
       }
     }
 
     async function loadBalances(){
-      if (!user) { log("No wallet connected - balances not loaded"); return; }
+      if (!user) { log("No wallet connected - balances not loaded", "warning"); return; }
       try{
         const usdc = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
         const bfl  = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
@@ -292,9 +343,9 @@
         if ($("balanceBFL")) $("balanceBFL").textContent = formatAmount(BigInt(b1.toString()), d1);
         if ($("fromBalance")) $("fromBalance").textContent = $("balanceUSDC") ? $("balanceUSDC").textContent : "-";
         if ($("toBalance")) $("toBalance").textContent = $("balanceBFL") ? $("balanceBFL").textContent : "-";
-        log("balances refreshed");
+        log("balances refreshed", "info");
       }catch(e){
-        log("loadBalances error: " + (e && e.message ? e.message : String(e)));
+        log("loadBalances error: " + (e && e.message ? e.message : String(e)), "error");
       }
     }
 
@@ -313,13 +364,11 @@
         reserveBFL  = reserve0; dBFL  = dec0;
       } else return null;
       if (reserveBFL === 0n) return null;
-      // safe float scaling
       const numerator = Number(reserveUSDC) * Math.pow(10, dBFL);
       const denominator = Number(reserveBFL) * Math.pow(10, dUSDC);
       return numerator / denominator;
     }
 
-    // DexScreener fallback
     async function fetchDexScreenerPrice(){
       try{
         const url = `https://api.dexscreener.com/latest/dex/pairs/monad/${ADDRESSES.PAIR}`;
@@ -344,7 +393,7 @@
     // Polling
     setInterval(async ()=>{ await loadPair(); if (user) await loadBalances(); await updatePrice(); }, POLL_MS);
 
-    // Wallet connect: try Web3Auth (if SDK present) then fallback to injected
+    // Wallet connect
     async function connectInjected(){
       if (!window.ethereum) { alert("Please install MetaMask"); throw new Error("No injected provider"); }
       await window.ethereum.request({ method: "eth_requestAccounts" });
@@ -352,13 +401,13 @@
       const network = await wp.getNetwork();
       if (Number(network.chainId) !== CHAIN_ID) {
         try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] }); }
-        catch(e){ log("Please switch MetaMask to Monad chain (143)"); throw e; }
+        catch(e){ log("Please switch MetaMask to Monad chain (143)", "warning"); throw e; }
       }
       walletProvider = wp;
       signer = await walletProvider.getSigner();
       user = await signer.getAddress();
       if ($("walletDisplay")) $("walletDisplay").textContent = `${user.slice(0,6)}...${user.slice(-4)}`;
-      log("Connected injected wallet: " + user);
+      log("Connected injected wallet: " + user, "info");
       await loadBalances();
     }
 
@@ -374,17 +423,17 @@
       signer = await walletProvider.getSigner();
       user = await signer.getAddress();
       if ($("walletDisplay")) $("walletDisplay").textContent = `${user.slice(0,6)}...${user.slice(-4)}`;
-      log("Connected via Web3Auth: " + user);
+      log("Connected via Web3Auth: " + user, "info");
       await loadBalances();
     }
 
     async function connectWallet(){
       try{
         if (window.Web3Auth && WEB3AUTH_CLIENT_ID) {
-          try { await connectWeb3Auth(); return; } catch(err){ log("Web3Auth failed, falling back: " + (err && err.message ? err.message : String(err))); }
+          try { await connectWeb3Auth(); return; } catch(err){ log("Web3Auth failed, falling back: " + (err && err.message ? err.message : String(err)), "warning"); }
         }
         await connectInjected();
-      } catch(e){ log("connectWallet error: " + (e && e.message ? e.message : String(e))); }
+      } catch(e){ log("connectWallet error: " + (e && e.message ? e.message : String(e)), "error"); }
     }
 
     // UI interactions
@@ -392,9 +441,7 @@
     if ($("fromLogo")) $("fromLogo").src = LOGOS[$("fromToken").value];
     if ($("toLogo")) $("toLogo").src = LOGOS[$("toToken").value];
 
-    // -------------------------
-    // Approve with pending-request handling
-    // -------------------------
+    // Approve using sendWithPendingRetry for robustness
     async function approveForPair(){
       if (!signer || !user) { alert("Connect wallet first"); return; }
       const fromSel = $("fromToken").value;
@@ -406,19 +453,20 @@
       const token = new ethers.Contract(addr, ABIS.ERC20, signer);
 
       $("approveBtn").disabled = true;
-      log('Approving pair...');
+      log("Approving (will retry if wallet request pending)...", "info");
 
       try {
-        const tx = await token.approve(ADDRESSES.PAIR, bn);
-        log('Approve tx: ' + tx.hash);
+        const tx = await sendWithPendingRetry(() => token.approve(ADDRESSES.PAIR, bn), 12, 3000);
+        log("approve tx: " + tx.hash, "debug");
         await tx.wait();
-        log('Approve confirmed');
+        log("approve confirmed", "success");
       } catch (err) {
-        if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
-          alert('A wallet request is already pending — please confirm or cancel it in your wallet and try again.');
-          log('Approve aborted: wallet already has a pending request.');
+        if (err && (err.code === 4001 || (err.error && err.error.code === 4001))) {
+          alert("Transaction rejected in wallet.");
+          log("Approve rejected by user", "warning");
         } else {
-          log('Approve failed: ' + (err && err.message ? err.message : String(err)));
+          alert("Approve failed: " + (err && err.message ? err.message : String(err)));
+          log("Approve failed: " + (err && err.message ? err.message : String(err)), "error");
           console.error(err);
         }
       } finally {
@@ -426,9 +474,7 @@
       }
     }
 
-    // -------------------------
-    // Swap with pending-request handling
-    // -------------------------
+    // Swap using sendWithPendingRetry for approve/transfer/swap steps
     async function doSwap(){
       if (!signer || !user) { alert("Connect wallet first"); return; }
       try{
@@ -448,38 +494,42 @@
         // check allowance
         const allowance = BigInt((await token.allowance(user, ADDRESSES.PAIR)).toString());
         if (allowance < amountInBN) {
-          log('Approving required before swap...');
+          log('Approving required before swap...', "info");
           try {
-            const aTx = await token.approve(ADDRESSES.PAIR, amountInBN);
-            log('Approve tx: ' + aTx.hash);
+            const aTx = await sendWithPendingRetry(() => token.approve(ADDRESSES.PAIR, amountInBN), 12, 3000);
+            log('Approve tx: ' + aTx.hash, "debug");
             await aTx.wait();
-            log('Approve confirmed');
+            log('Approve confirmed', "success");
           } catch (err) {
-            if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
-              alert('Wallet already has a pending request — confirm/cancel it and then try again.');
+            if (err && (err.code === 4001 || (err.error && err.error.code === 4001))) {
+              alert('Transaction rejected in wallet.');
               $("swapBtn").disabled = false;
               return;
             }
-            throw err;
-          }
-        } else {
-          log('Allowance sufficient');
-        }
-
-        // transfer to pair
-        log('Transferring to pair...');
-        try {
-          const ttx = await token.transfer(ADDRESSES.PAIR, amountInBN);
-          log('Transfer tx: ' + ttx.hash);
-          await ttx.wait();
-          log('Transfer confirmed');
-        } catch (err) {
-          if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
-            alert('Wallet already has a pending request — confirm/cancel it and then try again.');
+            alert('Approve failed: ' + (err && err.message ? err.message : String(err)));
             $("swapBtn").disabled = false;
             return;
           }
-          throw err;
+        } else {
+          log('Allowance sufficient', "debug");
+        }
+
+        // transfer to pair
+        log('Transferring to pair...', "info");
+        try {
+          const ttx = await sendWithPendingRetry(() => token.transfer(ADDRESSES.PAIR, amountInBN), 12, 3000);
+          log('Transfer tx: ' + ttx.hash, "debug");
+          await ttx.wait();
+          log('Transfer confirmed', "success");
+        } catch (err) {
+          if (err && (err.code === 4001 || (err.error && err.error.code === 4001))) {
+            alert('Transaction rejected in wallet.');
+            $("swapBtn").disabled = false;
+            return;
+          }
+          alert('Transfer failed: ' + (err && err.message ? err.message : String(err)));
+          $("swapBtn").disabled = false;
+          return;
         }
 
         // refresh pair for fresh reserves
@@ -495,25 +545,28 @@
         if (pairInfo.token0 === addrFromLower) amount1Out = expectedOut; else amount0Out = expectedOut;
 
         // call swap
+        log('Calling swap...', "info");
         try {
-          log('Calling swap...');
-          const sTx = await pair.swap(amount0Out, amount1Out, user, '0x');
-          log('Swap tx: ' + sTx.hash);
+          const sTx = await sendWithPendingRetry(() => pair.swap(amount0Out, amount1Out, user, '0x'), 12, 3000);
+          log('swap tx: ' + sTx.hash, "debug");
           await sTx.wait();
-          log('Swap confirmed');
+          log('Swap confirmed', "success");
           await loadBalances();
           await loadPair();
         } catch (err) {
-          if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
-            alert('Wallet already has a pending request — confirm/cancel it and then try again.');
-            log('Swap aborted: wallet request pending.');
+          if (err && (err.code === 4001 || (err.error && err.error.code === 4001))) {
+            alert('Transaction rejected in wallet.');
+            $("swapBtn").disabled = false;
             return;
           }
-          throw err;
+          alert('Swap failed: ' + (err && err.message ? err.message : String(err)));
+          log('Swap failed: ' + (err && err.message ? err.message : String(err)), "error");
+          $("swapBtn").disabled = false;
+          return;
         }
 
       } catch (e) {
-        log('Swap failed: ' + (e && e.message ? e.message : String(e)));
+        log('Swap failed: ' + (e && e.message ? e.message : String(e)), "error");
         console.error(e);
       } finally {
         $("swapBtn").disabled = false;
@@ -570,7 +623,7 @@
     if ($("fromLogo")) $("fromLogo").src = LOGOS[$("fromToken").value] || "";
     if ($("toLogo")) $("toLogo").src = LOGOS[$("toToken").value] || "";
 
-    log("UI initialized. Reads via Alchemy. Polling every " + (POLL_MS/1000) + "s.");
+    log("UI initialized. Reads via Alchemy. Polling every " + (POLL_MS/1000) + "s.", "debug");
   })();
   </script>
 </body>
