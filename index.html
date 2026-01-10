@@ -3,526 +3,548 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Monad DEX — Complete Trading Platform (fixed pair)</title>
+  <title>Monad DEX — USDC ↔ BitcoinFlash (BFL) — Live</title>
   <style>
-    :root{
-      --bg:#0B1220; --card:#0E1A2B; --text:#E6F0FF;
-      --primary:#0066FF; --accent:#00C2A8; --success:#28C76F; --danger:#FF6B6B;
-      --muted:#98A0B3; --glass: rgba(255,255,255,0.03);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial;background:linear-gradient(180deg,#071126 0%, #041124 100%);color:var(--text);}
-    .wrap{max-width:1400px;margin:0 auto;padding:20px;}
-    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding:20px;background:rgba(255,255,255,0.03);border-radius:16px;backdrop-filter:blur(12px)}
-    h1{font-size:24px;margin:0;background:linear-gradient(90deg,#60a5fa,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .subtitle{font-size:12px;color:var(--muted);margin-top:4px}
-    .nav{display:flex;gap:8px;margin-bottom:24px;background:rgba(0,0,0,0.2);padding:8px;border-radius:12px}
-    .nav-btn{padding:12px 24px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:8px;font-weight:600;transition:all 0.3s}
-    .nav-btn:hover{color:var(--text)}
-    .nav-btn.active{background:var(--primary);color:white}
-    .card{background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));border-radius:16px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.06);margin-bottom:20px}
-    .card-title{font-size:20px;font-weight:700;margin-bottom:20px;color:var(--text)}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-    .grid-3{display:grid;grid-template-columns:repeat(3, 1fr);gap:16px}
-    .control{margin:16px 0}
-    label{display:block;color:var(--muted);font-size:13px;margin-bottom:8px;font-weight:500}
-    input[type="number"], select{width:100%;padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(0,0,0,0.3);color:var(--text);font-size:16px;transition:all 0.3s}
-    input[type="number"]:focus, select:focus{outline:none;border-color:var(--primary);background:rgba(0,0,0,0.4)}
-    .btn{display:inline-flex;gap:8px;align-items:center;justify-content:center;padding:14px 24px;border-radius:12px;border:0;color:white;font-weight:600;cursor:pointer;transition:all 0.3s;font-size:15px}
-    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,0.3)}
-    .btn-primary{background:linear-gradient(90deg,var(--primary),#0086ff)}
-    .btn-success{background:linear-gradient(90deg,var(--success),#22c55e)}
-    .btn-ghost{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:var(--text)}
-    .btn-full{width:100%}
-    .token-input{background:rgba(0,0,0,0.3);border-radius:12px;padding:12px 16px;border:1px solid rgba(255,255,255,0.06);display:flex;gap:12px;align-items:center}
-    .token-input input{background:transparent;border:0;font-size:28px;color:var(--text);width:100%}
-    .token-select{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600;border:0;color:var(--text)}
-    .token-logo{width:36px;height:36px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.06)}
-    .stat-box{background:rgba(0,0,0,0.3);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.05)}
-    .stat-label{font-size:12px;color:var(--muted);margin-bottom:4px}
-    .stat-value{font-size:24px;font-weight:700;color:var(--text)}
-    pre{background:rgba(0,0,0,0.4);padding:12px;border-radius:10px;color:#a5f3fc;overflow:auto;max-height:200px;font-size:12px;border:1px solid rgba(255,255,255,0.05)}
+    /* (Styling same as previous — trimmed for brevity) */
+    :root{--bg:#0B1220;--card:#0E1A2B;--text:#E6F0FF;--muted:#98A0B3;--accent:#0066FF;--success:#28C76F;--danger:#FF6B6B;--border:rgba(255,255,255,0.08)}
+    *{box-sizing:border-box} body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,#071126,#041124);color:var(--text);margin:0;padding:20px}
+    .container{max-width:1200px;margin:0 auto}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);margin-bottom:18px}
+    h1{margin:0;font-size:20px;background:linear-gradient(90deg,#60A5FA,#22D3EE);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .row{display:flex;gap:12px;align-items:center}
-    .space-between{justify-content:space-between}
-    .muted{color:var(--muted);font-size:13px}
-    .small{font-size:12px}
-    .mono{font-family:monospace}
-    .mb-2{margin-bottom:8px}
-    .mb-4{margin-bottom:16px}
-    .mt-2{margin-top:8px}
-    .tab-content{display:none}
-    .tab-content.active{display:block}
-    @media(max-width:1024px){
-      .grid{grid-template-columns:1fr}
-    }
-    .swap-arrow{width:48px;height:48px;background:rgba(59,130,246,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.3s;margin:16px auto}
-    .swap-arrow:hover{background:rgba(59,130,246,0.4);transform:rotate(180deg)}
+    .btn{padding:10px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
+    .btn-primary{background:linear-gradient(90deg,var(--accent),#0086ff);color:white}
+    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+    .main-grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .card{background:rgba(14,26,43,0.8);padding:16px;border-radius:12px;border:1px solid var(--border)}
+    .token-input{display:flex;gap:12px;align-items:center;padding:8px;background:rgba(255,255,255,0.02);border-radius:10px}
+    input,select{background:transparent;border:0;color:var(--text);outline:none}
+    .stat{font-family:monospace;color:#cfe8ff}
+    pre{background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;color:#a5f3fc;max-height:220px;overflow:auto}
+    .small{font-size:13px;color:var(--muted)}
+    .token-logo{width:36px;height:36px;border-radius:8px;object-fit:cover}
+    @media(max-width:980px){.main-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="container">
     <header>
       <div>
-        <h1>Monad DEX</h1>
-        <div class="subtitle">Fixed USDC ↔ BitcoinFlash pair handling</div>
+        <h1>Monad DEX — USDC ↔ BitcoinFlash (BFL) — Live</h1>
+        <div class="small">Pair: 0x5748...5d62 — Network: Monad (143)</div>
       </div>
       <div class="row">
-        <div>
-          <div class="small muted">Network: Monad (143)</div>
-          <div class="small muted" id="walletDisplay">Not connected</div>
-        </div>
+        <div id="walletDisplay" class="small">Not connected</div>
         <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
       </div>
     </header>
 
-    <div class="nav">
-      <button class="nav-btn active" data-tab="swap">Swap</button>
-    </div>
-
-    <div class="tab-content active" id="swap-tab">
-      <div class="grid">
-        <div class="card">
-          <div class="card-title">Swap Tokens (USDC ↔ BFL)</div>
-
-          <div class="token-input mb-4">
-            <img id="fromLogo" class="token-logo" src="https://files.catbox.moe/ujzf30.gif" alt="from logo">
-            <div style="flex:1">
-              <div class="row space-between mb-2">
-                <label>From</label>
-                <span class="small muted">Balance: <span id="fromBalance">0.0000</span></span>
-              </div>
-              <input type="number" id="amountIn" placeholder="0.0" step="any">
-            </div>
-            <select id="fromToken" class="token-select">
-              <option value="USDC">USDC</option>
-              <option value="BFL">BFL</option>
-            </select>
+    <div class="main-grid">
+      <!-- Left: trading + actions -->
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Swap</strong><div class="small">Direct pair transfer → swap (no router)</div></div>
+            <div class="small">RPC: <span id="rpcUrl">https://rpc.monad.xyz</span></div>
           </div>
-
-          <div class="swap-arrow" id="swapArrow">⇅</div>
-
-          <div class="token-input mb-4">
-            <img id="toLogo" class="token-logo" src="https://files.catbox.moe/lk7mrk.png" alt="to logo">
-            <div style="flex:1">
-              <div class="row space-between mb-2">
-                <label>To</label>
-                <span class="small muted">Balance: <span id="toBalance">0.0000</span></span>
-              </div>
-              <input type="number" id="amountOut" placeholder="0.0" readonly>
-            </div>
-            <select id="toToken" class="token-select">
-              <option value="BFL">BFL</option>
-              <option value="USDC">USDC</option>
-            </select>
-          </div>
-
-          <div class="control">
-            <label>Slippage Tolerance (%)</label>
-            <input type="number" id="slippage" value="0.5" step="0.1">
-          </div>
-
-          <button class="btn btn-primary btn-full" id="swapBtn">Swap</button>
 
           <div style="margin-top:12px">
-            <label>Activity Log</label>
+            <label class="small">From</label>
+            <div class="token-input">
+              <img id="fromLogo" class="token-logo" src="https://files.catbox.moe/ujzf30.gif" alt="USDC">
+              <input id="amountIn" type="number" placeholder="0.0" step="any" />
+              <select id="fromToken">
+                <option value="USDC">USDC</option>
+                <option value="BFL">BFL</option>
+              </select>
+              <div style="margin-left:auto" class="small">Balance: <span id="fromBalance">-</span></div>
+            </div>
+          </div>
+
+          <div style="text-align:center;margin:12px 0">
+            <button id="swapFlip" class="btn btn-ghost">⇅</button>
+          </div>
+
+          <div>
+            <label class="small">To (estimate)</label>
+            <div class="token-input">
+              <img id="toLogo" class="token-logo" src="https://files.catbox.moe/lk7mrk.png" alt="BFL">
+              <input id="amountOut" type="text" placeholder="0.0" readonly />
+              <select id="toToken">
+                <option value="BFL">BFL</option>
+                <option value="USDC">USDC</option>
+              </select>
+              <div style="margin-left:auto" class="small">Balance: <span id="toBalance">-</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <label class="small">Slippage tolerance (%)</label>
+            <input id="slippage" type="number" step="0.1" value="0.5" style="width:120px;padding:6px;border-radius:8px;border:1px solid var(--border)" />
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button id="approveBtn" class="btn btn-ghost">Approve</button>
+            <button id="swapBtn" class="btn btn-primary">Swap</button>
+            <button id="refreshAllBtn" class="btn btn-ghost" title="Refresh balances & reserves">Refresh All</button>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="small">Logs</div>
             <pre id="log">Ready.</pre>
           </div>
         </div>
 
-        <div>
-          <div class="card">
-            <div class="card-title">Balances</div>
-            <div class="stat-box mb-2">
-              <div class="stat-label">USDC</div>
-              <div class="stat-value" id="balanceUSDC">0.0000</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">BFL</div>
-              <div class="stat-value" id="balanceBFL">0.0000</div>
-            </div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Liquidity & Utility</strong><div class="small">Mint BFL, add liquidity</div></div>
           </div>
 
-          <div class="card" style="margin-top:16px">
-            <div class="card-title">Pair Reserves (live)</div>
-            <div class="row space-between mb-2">
-              <span class="muted">token0:</span> <span id="pairToken0" class="mono">—</span>
-            </div>
-            <div class="row space-between mb-2">
-              <span class="muted">reserve0:</span> <span id="pairReserve0" class="mono">—</span>
-            </div>
-            <div class="row space-between">
-              <span class="muted">token1:</span> <span id="pairToken1" class="mono">—</span>
-            </div>
-            <div class="row space-between">
-              <span class="muted">reserve1:</span> <span id="pairReserve1" class="mono">—</span>
-            </div>
-            <div style="margin-top:12px">
-              <button id="refreshBtn" class="btn btn-ghost">Refresh Reserves</button>
-            </div>
+          <div style="margin-top:12px" class="small">Mint BFL (owner-only)</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="mintBFLAmount" type="number" step="any" placeholder="amount" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border)" />
+            <button id="mintBFLBtn" class="btn btn-primary">Mint BFL</button>
+          </div>
+
+          <div style="margin-top:12px" class="small">Add liquidity (transfer -> mint)</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="liquidityUSDC" type="number" step="any" placeholder="USDC amount" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border)" />
+            <input id="liquidityBFL" type="number" step="any" placeholder="BFL amount" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border)" />
+          </div>
+          <div style="margin-top:8px">
+            <button id="addLiquidityBtn" class="btn btn-primary">Add Liquidity</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: info panel -->
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Balances</strong></div>
+            <div class="small">Update with Refresh</div>
+          </div>
+          <div style="margin-top:12px" class="small">USDC: <span id="balanceUSDC" class="stat">-</span></div>
+          <div style="margin-top:8px" class="small">BFL: <span id="balanceBFL" class="stat">-</span></div>
+          <div style="margin-top:12px">
+            <button id="refreshBalancesBtn" class="btn btn-ghost">Refresh Balances</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Pair Reserves</strong></div>
+            <div class="small">Pair: 0x5748...5d62</div>
+          </div>
+
+          <div style="margin-top:12px" class="small">token0: <span id="pairToken0" class="stat">-</span></div>
+          <div style="margin-top:6px" class="small">reserve0: <span id="pairReserve0" class="stat">-</span></div>
+          <div style="margin-top:10px" class="small">token1: <span id="pairToken1" class="stat">-</span></div>
+          <div style="margin-top:6px" class="small">reserve1: <span id="pairReserve1" class="stat">-</span></div>
+
+          <div style="margin-top:12px">
+            <button id="refreshReservesBtn" class="btn btn-ghost">Refresh Reserves</button>
           </div>
         </div>
       </div>
     </div>
-
   </div>
 
+  <!-- Ethers v6 -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
 
   <script>
   (async function(){
-    // CONFIG - keep addresses as provided
-    const CONFIG = {
-      RPC_URL: "https://rpc.monad.xyz",
-      CHAIN_ID: 143,
-      CONTRACTS: {
-        USDC: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603".toLowerCase(),
-        BFL:  "0x7d7E0112d2763c98238aF7cebEAe33d53F3F76DD".toLowerCase(),
-        PAIR_BFL_USDC: "0x57489A99059A41464fE9322864E3B241D96c5d62".toLowerCase()
-      },
-      LOGOS: {
-        USDC: "https://files.catbox.moe/ujzf30.gif",
-        BFL:  "https://files.catbox.moe/lk7mrk.png"
-      },
-      ABIS: {
-        ERC20: [
-          "function approve(address spender, uint256 amount) external returns (bool)",
-          "function allowance(address owner, address spender) view returns (uint256)",
-          "function transfer(address to, uint amount) external returns (bool)",
-          "function balanceOf(address) view returns (uint256)",
-          "function decimals() view returns (uint8)"
-        ],
-        PAIR: [
-          // some pairs return (uint112,uint112) and some (uint112,uint112,uint32) — handle both
-          "function getReserves() view returns (uint112,uint112)", 
-          "function token0() view returns (address)",
-          "function token1() view returns (address)",
-          "function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external",
-          "function mint(address to) returns (uint256)"
-        ]
-      }
+    // CONFIG - no secrets
+    const RPC_URL = "https://rpc.monad.xyz";
+    const CHAIN_ID = 143;
+
+    const ADDRESSES = {
+      USDC: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      BFL:  "0x7d7E0112d2763c98238aF7cebEAe33d53F3F76DD",
+      PAIR: "0x57489A99059A41464fE9322864E3B241D96c5d62",
+      FACTORY: "0x759774EbC4d5C5c83a255A14A25464cAD9dc4B3F",
+      MDX: "0x66238b63532509A9c9C2440DE341fd2335794a07",
+      MASTERCHEF: "0x8Dd025006D20aE484E9ac03D044fAaBA952D321F",
+      ACTIVITY: "0xb007C8E63FdF73989bb30B8866C5b0863fa9853a"
     };
 
-    // UI elements
-    const connectBtn = document.getElementById('connectBtn');
-    const walletDisplay = document.getElementById('walletDisplay');
-    const amountInEl = document.getElementById('amountIn');
-    const amountOutEl = document.getElementById('amountOut');
-    const fromTokenSel = document.getElementById('fromToken');
-    const toTokenSel = document.getElementById('toToken');
-    const swapBtn = document.getElementById('swapBtn');
-    const logEl = document.getElementById('log');
-    const balanceUSDC = document.getElementById('balanceUSDC');
-    const balanceBFL = document.getElementById('balanceBFL');
-    const refreshBtn = document.getElementById('refreshBtn');
-    const pairToken0El = document.getElementById('pairToken0');
-    const pairToken1El = document.getElementById('pairToken1');
-    const pairReserve0El = document.getElementById('pairReserve0');
-    const pairReserve1El = document.getElementById('pairReserve1');
-    const fromBalanceEl = document.getElementById('fromBalance');
-    const toBalanceEl = document.getElementById('toBalance');
-    const fromLogo = document.getElementById('fromLogo');
-    const toLogo = document.getElementById('toLogo');
+    // ABIs (necessary functions only) - expanded to include all deployed contracts
+    const ABIS = {
+      ERC20: [
+        "function balanceOf(address) view returns (uint256)",
+        "function decimals() view returns (uint8)",
+        "function approve(address,uint256) returns (bool)",
+        "function allowance(address,address) view returns (uint256)",
+        "function transfer(address,uint256) returns (bool)",
+        "function transferFrom(address,address,uint256) returns (bool)",
+        "function name() view returns (string)",
+        "function symbol() view returns (string)",
+        "function totalSupply() view returns (uint256)",
+        "function mint(address,uint256)"
+      ],
+      PAIR: [
+        "function getReserves() view returns (uint112,uint112)",
+        "function token0() view returns (address)",
+        "function token1() view returns (address)",
+        "function swap(uint256,uint256,address,bytes) external",
+        "function mint(address) returns (uint256)"
+      ],
+      FACTORY: [
+        "function getPair(address,address) view returns (address)",
+        "function createPair(address,address) returns (address)"
+      ],
+      MASTERCHEF: [
+        "function deposit(uint256,uint256) external",
+        "function withdraw(uint256,uint256) external",
+        "function userInfo(uint256,address) view returns (uint256,uint256)",
+        "function pendingReward(uint256,address) view returns (uint256)"
+      ],
+      ACTIVITY: [
+        "function someActivity() view returns (uint256)" // placeholder; real ABI functions vary
+      ]
+    };
 
-    let provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL, { name: 'monad', chainId: CONFIG.CHAIN_ID });
+    // DOM
+    const dom = {
+      connectBtn: document.getElementById('connectBtn'),
+      walletDisplay: document.getElementById('walletDisplay'),
+      log: document.getElementById('log'),
+      // swap
+      fromToken: document.getElementById('fromToken'),
+      toToken: document.getElementById('toToken'),
+      fromLogo: document.getElementById('fromLogo'),
+      toLogo: document.getElementById('toLogo'),
+      amountIn: document.getElementById('amountIn'),
+      amountOut: document.getElementById('amountOut'),
+      slippage: document.getElementById('slippage'),
+      swapBtn: document.getElementById('swapBtn'),
+      approveBtn: document.getElementById('approveBtn'),
+      swapFlip: document.getElementById('swapFlip'),
+      refreshAllBtn: document.getElementById('refreshAllBtn'),
+      // balances & reserves
+      balanceUSDC: document.getElementById('balanceUSDC'),
+      balanceBFL: document.getElementById('balanceBFL'),
+      refreshBalancesBtn: document.getElementById('refreshBalancesBtn'),
+      refreshReservesBtn: document.getElementById('refreshReservesBtn'),
+      pairToken0: document.getElementById('pairToken0'),
+      pairToken1: document.getElementById('pairToken1'),
+      pairReserve0: document.getElementById('pairReserve0'),
+      pairReserve1: document.getElementById('pairReserve1'),
+      // liquidity/mint
+      mintBFLAmount: document.getElementById('mintBFLAmount'),
+      mintBFLBtn: document.getElementById('mintBFLBtn'),
+      liquidityUSDC: document.getElementById('liquidityUSDC'),
+      liquidityBFL: document.getElementById('liquidityBFL'),
+      addLiquidityBtn: document.getElementById('addLiquidityBtn')
+    };
+
+    // logos — updated per your request
+    const LOGOS = {
+      USDC: "https://files.catbox.moe/ujzf30.gif",
+      BFL:  "https://files.catbox.moe/lk7mrk.png"
+    };
+
+    // provider & signer
+    let provider = new ethers.providers.JsonRpcProvider(RPC_URL, { name: "monad", chainId: CHAIN_ID });
     let signer = null;
-    let userAddress = null;
+    let user = null;
 
-    // store raw BigInt reserves and token addresses/decimals
-    let pairState = {
-      token0: null,
-      token1: null,
-      reserve0Raw: 0n,
-      reserve1Raw: 0n,
-      decimals: {} // address -> decimals
-    };
+    // on-chain state cache
+    let tokenDecimals = {};
+    let pairState = { token0: null, token1: null, reserve0: 0n, reserve1: 0n };
 
+    // helpers
     function log(msg){
       const t = new Date().toLocaleTimeString();
-      logEl.textContent = `[${t}] ${msg}\n` + logEl.textContent;
+      dom.log.textContent = `[${t}] ${msg}\n` + dom.log.textContent;
+      console.log(`[${t}] ${msg}`);
     }
+    function toBase(amount, decimals){
+      if(!amount) return 0n;
+      const s = String(amount);
+      if(!s.includes('.')) return BigInt(s) * 10n**BigInt(decimals);
+      const [w,f] = s.split('.');
+      const fp = (f + '0'.repeat(decimals)).slice(0,decimals);
+      return BigInt(w) * 10n**BigInt(decimals) + BigInt(fp || '0');
+    }
+    function fromBase(bn, decimals){
+      if(bn === 0n || !bn) return '0';
+      const f = 10n**BigInt(decimals);
+      const w = bn / f;
+      const r = bn % f;
+      if(r === 0n) return w.toString();
+      let s = r.toString().padStart(decimals, '0').replace(/0+$/, '');
+      return `${w}.${s}`;
+    }
+    function short(a){ return a ? `${a.slice(0,6)}...${a.slice(-4)}` : '-' }
 
-    function toBaseUnits(amountStr, decimals){
-      if(!amountStr) return 0n;
-      const s = String(amountStr);
-      if (s.indexOf('.') === -1) return BigInt(s) * 10n**BigInt(decimals);
-      const [whole, frac] = s.split('.');
-      const fracPadded = (frac + '0'.repeat(decimals)).slice(0,decimals);
-      return BigInt(whole)*10n**BigInt(decimals) + BigInt(fracPadded || '0');
-    }
-    function fromBaseUnits(bn, decimals){
-      if(bn === undefined || bn === null) return '0';
-      const factor = 10n**BigInt(decimals);
-      const whole = bn / factor;
-      const frac = bn % factor;
-      if(frac === 0n) return whole.toString();
-      let fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
-      return whole.toString() + (fracStr ? '.' + fracStr : '');
-    }
-
-    function getAmountOut(amountIn, reserveIn, reserveOut){
-      if(amountIn <= 0n) return 0n;
-      const amountInWithFee = amountIn * 997n;
-      const numerator = amountInWithFee * reserveOut;
-      const denominator = reserveIn * 1000n + amountInWithFee;
-      return numerator / denominator;
-    }
-
-    // update logos when token selection changes
-    function updateLogos(){
-      fromLogo.src = CONFIG.LOGOS[fromTokenSel.value] || '';
-      toLogo.src = CONFIG.LOGOS[toTokenSel.value] || '';
-    }
-
-    // METAMASK CONNECT
-    connectBtn.addEventListener('click', async ()=>{
-      if (!window.ethereum) { alert('Please install MetaMask'); return; }
+    async function ensureDecimals(addr){
+      const key = addr.toLowerCase();
+      if(tokenDecimals[key] !== undefined) return tokenDecimals[key];
       try{
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-        const net = await web3Provider.getNetwork();
-        if(net.chainId !== CONFIG.CHAIN_ID){
-          alert(`Please switch MetaMask to chainId ${CONFIG.CHAIN_ID}`);
-          return;
-        }
-        provider = web3Provider;
-        signer = web3Provider.getSigner();
-        userAddress = await signer.getAddress();
-        walletDisplay.textContent = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        log('Connected ' + walletDisplay.textContent);
-        await loadBalances();
-      }catch(err){
-        console.error(err); log('Connect failed: ' + (err.message || err));
-      }
-    });
-
-    // load token decimals safely
-    async function fetchDecimals(address){
-      try{
-        const addr = address.toLowerCase();
-        if(pairState.decimals[addr] !== undefined) return pairState.decimals[addr];
-        const c = new ethers.Contract(addr, CONFIG.ABIS.ERC20, provider);
+        const c = new ethers.Contract(addr, ABIS.ERC20, provider);
         const d = Number(await c.decimals());
-        pairState.decimals[addr] = d;
+        tokenDecimals[key] = d;
         return d;
       }catch(e){
-        // fallback
-        pairState.decimals[address.toLowerCase()] = 18;
+        tokenDecimals[key] = 18;
         return 18;
       }
     }
 
-    // load pair info & reserves correctly using token0/token1 ordering
-    async function loadPairState(){
+    async function loadPair(){
       try{
-        const pair = new ethers.Contract(CONFIG.CONTRACTS.PAIR_BFL_USDC, CONFIG.ABIS.PAIR, provider);
-        const token0Addr = (await pair.token0()).toLowerCase();
-        const token1Addr = (await pair.token1()).toLowerCase();
-        pairState.token0 = token0Addr;
-        pairState.token1 = token1Addr;
-        pairToken0El.textContent = token0Addr;
-        pairToken1El.textContent = token1Addr;
-
-        // fetch decimals per token
-        await fetchDecimals(token0Addr);
-        await fetchDecimals(token1Addr);
-
-        // fetch reserves (handle both 2-tuple or 3-tuple returns)
+        const pair = new ethers.Contract(ADDRESSES.PAIR, ABIS.PAIR, provider);
+        const token0 = (await pair.token0()).toLowerCase();
+        const token1 = (await pair.token1()).toLowerCase();
         let reserves = await pair.getReserves();
-        // ethers v6 returns array-like; ensure BigInt
-        let r0 = BigInt(reserves[0].toString ? reserves[0].toString() : reserves[0]);
-        let r1 = BigInt(reserves[1].toString ? reserves[1].toString() : reserves[1]);
-        pairState.reserve0Raw = r0;
-        pairState.reserve1Raw = r1;
-
-        // display reserves using correct decimals
-        const d0 = pairState.decimals[token0Addr] ?? 18;
-        const d1 = pairState.decimals[token1Addr] ?? 18;
-        pairReserve0El.textContent = fromBaseUnits(r0, d0);
-        pairReserve1El.textContent = fromBaseUnits(r1, d1);
-        log('Pair loaded: token0/token1 and reserves updated');
-      }catch(err){
-        console.error(err);
-        log('loadPairState error: ' + (err && err.message ? err.message : err));
+        // normalize
+        const r0 = BigInt(reserves[0].toString ? reserves[0].toString() : reserves[0]);
+        const r1 = BigInt(reserves[1].toString ? reserves[1].toString() : reserves[1]);
+        pairState = { token0, token1, reserve0: r0, reserve1: r1 };
+        const d0 = await ensureDecimals(token0);
+        const d1 = await ensureDecimals(token1);
+        dom.pairToken0.textContent = token0;
+        dom.pairToken1.textContent = token1;
+        dom.pairReserve0.textContent = fromBase(r0, d0);
+        dom.pairReserve1.textContent = fromBase(r1, d1);
+        log('Pair loaded');
+      }catch(e){
+        log('Failed loadPair: '+(e.message||e));
       }
     }
 
     async function loadBalances(){
-      if(!provider || !userAddress) return;
+      if(!user) { log('Not connected'); return; }
       try{
-        const usdc = new ethers.Contract(CONFIG.CONTRACTS.USDC, CONFIG.ABIS.ERC20, provider);
-        const bfl  = new ethers.Contract(CONFIG.CONTRACTS.BFL, CONFIG.ABIS.ERC20, provider);
-        const [b0, b1] = await Promise.all([usdc.balanceOf(userAddress), bfl.balanceOf(userAddress)]);
-        const dUSDC = await fetchDecimals(CONFIG.CONTRACTS.USDC);
-        const dBFL  = await fetchDecimals(CONFIG.CONTRACTS.BFL);
-        balanceUSDC.textContent = parseFloat(fromBaseUnits(BigInt(b0.toString()), dUSDC)).toFixed(6);
-        balanceBFL.textContent  = parseFloat(fromBaseUnits(BigInt(b1.toString()), dBFL)).toFixed(6);
-        fromBalanceEl.textContent = balanceUSDC.textContent;
-        toBalanceEl.textContent = balanceBFL.textContent;
+        const usdc = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, provider);
+        const bfl  = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, provider);
+        const [b0,b1] = await Promise.all([usdc.balanceOf(user), bfl.balanceOf(user)]);
+        const d0 = await ensureDecimals(ADDRESSES.USDC);
+        const d1 = await ensureDecimals(ADDRESSES.BFL);
+        dom.balanceUSDC.textContent = fromBase(BigInt(b0.toString()), d0);
+        dom.balanceBFL.textContent = fromBase(BigInt(b1.toString()), d1);
+        dom.fromBalance.textContent = dom.balanceUSDC.textContent;
+        dom.toBalance.textContent = dom.balanceBFL.textContent;
         log('Balances refreshed');
-      }catch(err){
-        console.error(err);
-        log('loadBalances error: ' + (err && err.message ? err.message : err));
+      }catch(e){
+        log('Failed loadBalances: '+(e.message||e));
       }
     }
 
-    // calculate and show amountOut based on selection and precise reserves (handles token ordering & decimals)
-    async function calculateAndShowOutput(){
+    // estimate amountOut
+    function getAmountOut(amountIn, reserveIn, reserveOut){
+      if(amountIn <= 0n) return 0n;
+      const amountInWithFee = amountIn * 997n;
+      const num = amountInWithFee * reserveOut;
+      const den = (reserveIn * 1000n) + amountInWithFee;
+      return num / den;
+    }
+
+    async function calculateOut(){
       try{
-        const amtStr = amountInEl.value;
-        if(!amtStr || Number(amtStr) <= 0){ amountOutEl.value = ''; return; }
-        const fromToken = fromTokenSel.value;
-        const toToken = toTokenSel.value;
-        // update logos
-        updateLogos();
-        // determine pair used
-        if(!pairState.token0) await loadPairState();
-
-        // map token symbols to addresses
-        const addrFrom = (fromToken === 'USDC') ? CONFIG.CONTRACTS.USDC : CONFIG.CONTRACTS.BFL;
-        const addrTo   = (toToken === 'USDC') ? CONFIG.CONTRACTS.USDC : CONFIG.CONTRACTS.BFL;
-
-        // choose reserves based on token ordering
-        const token0 = pairState.token0;
-        const token1 = pairState.token1;
-        const reserve0 = pairState.reserve0Raw;
-        const reserve1 = pairState.reserve1Raw;
-        let reserveInRaw, reserveOutRaw;
-        let decimalsIn = pairState.decimals[addrFrom] ?? 18;
-        let decimalsOut = pairState.decimals[addrTo] ?? 18;
-
-        if(token0 === addrFrom) { reserveInRaw = reserve0; reserveOutRaw = reserve1; }
-        else if(token1 === addrFrom) { reserveInRaw = reserve1; reserveOutRaw = reserve0; }
-        else { amountOutEl.value = ''; return; }
-
-        const amountInBN = toBaseUnits(amtStr, decimalsIn);
-        const amountOutBN = getAmountOut(amountInBN, reserveInRaw, reserveOutRaw);
-        amountOutEl.value = fromBaseUnits(amountOutBN, decimalsOut);
-      }catch(err){
-        console.error(err);
+        const amt = dom.amountIn.value;
+        if(!amt || Number(amt) <= 0){ dom.amountOut.value = ''; return; }
+        if(!pairState.token0) await loadPair();
+        const fromSel = dom.fromToken.value;
+        const toSel = dom.toToken.value;
+        const addrFrom = (fromSel === 'USDC') ? ADDRESSES.USDC.toLowerCase() : ADDRESSES.BFL.toLowerCase();
+        const addrTo = (toSel === 'USDC') ? ADDRESSES.USDC.toLowerCase() : ADDRESSES.BFL.toLowerCase();
+        const decIn = await ensureDecimals(addrFrom);
+        const decOut = await ensureDecimals(addrTo);
+        let reserveIn = pairState.token0 === addrFrom ? pairState.reserve0 : pairState.reserve1;
+        let reserveOut = pairState.token0 === addrFrom ? pairState.reserve1 : pairState.reserve0;
+        const amountIn = toBase(amt, decIn);
+        const amountOut = getAmountOut(amountIn, reserveIn, reserveOut);
+        dom.amountOut.value = fromBase(amountOut, decOut);
+      }catch(e){
+        console.error(e);
       }
     }
 
-    // execute swap flow: approve if needed -> transfer tokens to pair -> pair.swap(...)
-    async function executeSwap(){
-      if(!signer) { alert('Connect wallet first'); return; }
+    // swap flow: approve if needed, transfer to pair, swap
+    async function doSwap(){
+      if(!signer || !user) { alert('Connect wallet'); return; }
       try{
-        const fromToken = fromTokenSel.value;
-        const toToken = toTokenSel.value;
-        if(fromToken === toToken) { alert('Select different tokens'); return; }
-        const addrFrom = (fromToken === 'USDC') ? CONFIG.CONTRACTS.USDC : CONFIG.CONTRACTS.BFL;
-        const addrTo   = (toToken === 'USDC') ? CONFIG.CONTRACTS.USDC : CONFIG.CONTRACTS.BFL;
-        const pairAddr = CONFIG.CONTRACTS.PAIR_BFL_USDC;
+        dom.swapBtn.disabled = true;
+        const fromSel = dom.fromToken.value;
+        const toSel = dom.toToken.value;
+        if(fromSel === toSel){ alert('Choose different tokens'); dom.swapBtn.disabled=false; return; }
+        const addrFrom = (fromSel === 'USDC') ? ADDRESSES.USDC : ADDRESSES.BFL;
+        const addrTo = (toSel === 'USDC') ? ADDRESSES.USDC : ADDRESSES.BFL;
+        const decIn = await ensureDecimals(addrFrom.toLowerCase());
+        const decOut = await ensureDecimals(addrTo.toLowerCase());
+        const amountIn = dom.amountIn.value;
+        if(!amountIn || Number(amountIn) <= 0){ alert('Enter amount'); dom.swapBtn.disabled=false; return; }
+        const amountInBN = toBase(amountIn, decIn);
 
-        const decimalsIn = pairState.decimals[addrFrom] ?? 18;
-        const decimalsOut = pairState.decimals[addrTo] ?? 18;
-        const amountInStr = amountInEl.value;
-        if(!amountInStr || Number(amountInStr) <= 0) { alert('Enter amount'); return; }
-        const amountInBN = toBaseUnits(amountInStr, decimalsIn);
+        const token = new ethers.Contract(addrFrom, ABIS.ERC20, signer);
+        const pair = new ethers.Contract(ADDRESSES.PAIR, ABIS.PAIR, signer);
 
-        const tokenContract = new ethers.Contract(addrFrom, CONFIG.ABIS.ERC20, signer);
-        // approve
-        const allowance = BigInt((await tokenContract.allowance(userAddress, pairAddr)).toString());
+        // allowance & approve
+        const allowance = BigInt((await token.allowance(user, ADDRESSES.PAIR)).toString());
         if(allowance < amountInBN){
-          log('Approving pair to spend input token...');
-          const tx = await tokenContract.approve(pairAddr, amountInBN);
-          log('Approve sent: '+tx.hash);
+          log('Approving...');
+          const tx = await token.approve(ADDRESSES.PAIR, amountInBN);
+          log('Approve tx: '+tx.hash);
           await tx.wait();
-          log('Approve confirmed');
-        } else {
-          log('Allowance sufficient');
-        }
+          log('Approved');
+        } else log('Allowance OK');
 
         // transfer to pair
-        log('Transferring tokens to pair...');
-        const txTransfer = await tokenContract.transfer(pairAddr, amountInBN);
-        log('Transfer tx: '+txTransfer.hash);
-        await txTransfer.wait();
+        log('Transfer to pair...');
+        const ttx = await token.transfer(ADDRESSES.PAIR, amountInBN);
+        log('Transfer tx: '+ttx.hash);
+        await ttx.wait();
         log('Transfer confirmed');
 
-        // compute amounts out based on freshest reserves (reload)
-        await loadPairState();
-        const token0 = pairState.token0;
-        const reserve0 = pairState.reserve0Raw;
-        const reserve1 = pairState.reserve1Raw;
-        let reserveInRaw, reserveOutRaw;
-        if(token0 === addrFrom) { reserveInRaw = reserve0; reserveOutRaw = reserve1; }
-        else { reserveInRaw = reserve1; reserveOutRaw = reserve0; }
+        // refresh reserves
+        await loadPair();
 
-        const expectedOut = getAmountOut(amountInBN, reserveInRaw, reserveOutRaw);
-        const slippagePct = Number(document.getElementById('slippage').value) || 0.5;
-        // compute minOut used for UI only (we don't send minOut to pair.swap; pair.swap requires exact amounts to send out)
-        const minOut = expectedOut * BigInt(Math.round((100 - slippagePct) * 100)) / 10000n;
-        log(`Expected out: ${fromBaseUnits(expectedOut, decimalsOut)} (min ${fromBaseUnits(minOut, decimalsOut)})`);
+        // compute expected out on fresh reserves
+        const addrFromLower = addrFrom.toLowerCase();
+        const reserveIn = pairState.token0 === addrFromLower ? pairState.reserve0 : pairState.reserve1;
+        const reserveOut = pairState.token0 === addrFromLower ? pairState.reserve1 : pairState.reserve0;
+        const expectedOut = getAmountOut(amountInBN, reserveIn, reserveOut);
 
-        // build swap params amount0Out/amount1Out according to token ordering
+        // amounts for swap
         let amount0Out = 0n, amount1Out = 0n;
-        if(pairState.token0 === addrFrom){ // token0 is input -> token1 is output
-          amount1Out = expectedOut;
-        } else {
-          amount0Out = expectedOut;
-        }
+        if(pairState.token0 === addrFromLower) amount1Out = expectedOut; else amount0Out = expectedOut;
 
         // call swap
-        log('Calling pair.swap...');
-        const pairContract = new ethers.Contract(pairAddr, CONFIG.ABIS.PAIR, signer);
-        const txSwap = await pairContract.swap(amount0Out, amount1Out, userAddress, '0x');
-        log('Swap sent: '+txSwap.hash);
-        const receipt = await txSwap.wait();
-        log('Swap confirmed in block '+receipt.blockNumber);
-        await loadBalances();
-        await loadPairState();
-      }catch(err){
-        console.error(err);
-        log('Swap failed: ' + (err && err.message ? err.message : String(err)));
-        alert('Swap failed: ' + (err && err.message ? err.message : String(err)));
+        log('Calling swap...');
+        const sTx = await pair.swap(amount0Out, amount1Out, user, '0x');
+        log('Swap tx: '+sTx.hash);
+        await sTx.wait();
+        log('Swap confirmed');
+        await Promise.all([loadBalances(), loadPair()]);
+      }catch(e){
+        log('Swap failed: '+(e.message||e));
+        console.error(e);
+      } finally {
+        dom.swapBtn.disabled = false;
       }
     }
 
-    // small helper to ensure pair state loaded initially
-    refreshBtn.addEventListener('click', async ()=>{ await loadPairState(); await loadBalances(); });
-
-    amountInEl.addEventListener('input', calculateAndShowOutput);
-    fromTokenSel.addEventListener('change', () => { updateLogos(); calculateAndShowOutput(); loadBalances(); });
-    toTokenSel.addEventListener('change', () => { updateLogos(); calculateAndShowOutput(); });
-    document.getElementById('swapArrow').addEventListener('click', ()=>{
-      const a = fromTokenSel.value; fromTokenSel.value = toTokenSel.value; toTokenSel.value = a;
-      updateLogos(); calculateAndShowOutput(); loadBalances();
-    });
-    swapBtn.addEventListener('click', executeSwap);
-
-    // initialize logos and state
-    function updateLogos(){
-      fromLogo.src = CONFIG.LOGOS[fromTokenSel.value] || '';
-      toLogo.src = CONFIG.LOGOS[toTokenSel.value] || '';
-    }
-
-    // init
-    async function init(){
+    // approve convenience button - approve pair for current input token and amount
+    async function approveForPair(){
+      if(!signer || !user){ alert('Connect wallet'); return; }
       try{
-        log('Initializing DEX UI...');
-        updateLogos();
-        await loadPairState();
-        // try to detect injected wallet address (optional)
-        if(window.ethereum){
-          try{
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-            if(accounts && accounts.length>0){
-              const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-              provider = web3Provider;
-              signer = web3Provider.getSigner();
-              userAddress = await signer.getAddress();
-              walletDisplay.textContent = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-              await loadBalances();
-            }
-          }catch(e){}
-        }
-      }catch(err){
-        console.error(err);
-        log('Init error: ' + (err && err.message ? err.message : String(err)));
-      }
+        const fromSel = dom.fromToken.value;
+        const addr = (fromSel === 'USDC') ? ADDRESSES.USDC : ADDRESSES.BFL;
+        const dec = await ensureDecimals(addr.toLowerCase());
+        const amt = dom.amountIn.value;
+        if(!amt || Number(amt) <= 0){ alert('Enter amount'); return; }
+        const bn = toBase(amt, dec);
+        const token = new ethers.Contract(addr, ABIS.ERC20, signer);
+        log('Approving pair...');
+        const tx = await token.approve(ADDRESSES.PAIR, bn);
+        log('Approve tx: '+tx.hash);
+        await tx.wait();
+        log('Approve confirmed');
+      }catch(e){ log('Approve failed: '+(e.message||e)); }
     }
 
-    await init();
+    // mint BFL (owner-only)
+    async function mintBFL(){
+      if(!signer || !user){ alert('Connect wallet'); return; }
+      try{
+        const amount = dom.mintBFLAmount.value;
+        if(!amount || Number(amount) <= 0){ alert('Enter amount'); return; }
+        const token = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
+        const dec = await ensureDecimals(ADDRESSES.BFL.toLowerCase());
+        const bn = toBase(amount, dec);
+        log('Calling mint BFL...');
+        const tx = await token.mint(user, bn);
+        log('Mint tx: '+tx.hash);
+        await tx.wait();
+        log('Mint confirmed');
+        await loadBalances();
+      }catch(e){ log('Mint failed: '+(e.message||e)); }
+    }
+
+    // add liquidity: transfer tokens then pair.mint(user)
+    async function addLiquidity(){
+      if(!signer || !user){ alert('Connect wallet'); return; }
+      try{
+        const usdcAmt = dom.liquidityUSDC.value;
+        const bflAmt = dom.liquidityBFL.value;
+        if(!usdcAmt||!bflAmt){ alert('Enter both amounts'); return; }
+        const usdc = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
+        const bfl = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
+        const pair = new ethers.Contract(ADDRESSES.PAIR, ABIS.PAIR, signer);
+        const decUSDC = await ensureDecimals(ADDRESSES.USDC.toLowerCase());
+        const decBFL = await ensureDecimals(ADDRESSES.BFL.toLowerCase());
+        const bnUSDC = toBase(usdcAmt, decUSDC);
+        const bnBFL = toBase(bflAmt, decBFL);
+
+        // approve & transfer
+        log('Approving USDC & BFL to pair...');
+        await (await usdc.approve(ADDRESSES.PAIR, bnUSDC)).wait();
+        await (await bfl.approve(ADDRESSES.PAIR, bnBFL)).wait();
+        log('Approvals confirmed');
+
+        log('Transferring tokens to pair...');
+        await (await usdc.transfer(ADDRESSES.PAIR, bnUSDC)).wait();
+        await (await bfl.transfer(ADDRESSES.PAIR, bnBFL)).wait();
+        log('Transfers confirmed');
+
+        log('Minting LP...');
+        const mt = await pair.mint(user);
+        log('Mint tx: '+mt.hash);
+        await mt.wait();
+        log('LP minted');
+        await Promise.all([loadBalances(), loadPair()]);
+      }catch(e){ log('Add liquidity failed: '+(e.message||e)); }
+    }
+
+    // REFRESH helpers
+    async function refreshAll(){
+      await Promise.all([loadPair(), loadBalances()]);
+    }
+
+    // UI wiring
+    dom.connectBtn.addEventListener('click', async ()=>{
+      if(window.ethereum){
+        try{
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          user = await signer.getAddress();
+          dom.walletDisplay.textContent = short(user);
+          log('Wallet connected: '+short(user));
+          // enable UI
+          dom.swapBtn.disabled = false;
+          await refreshAll();
+        }catch(e){ log('Connect failed: '+(e.message||e)); }
+      } else {
+        alert('No injected wallet. Use MetaMask.');
+      }
+    });
+
+    dom.refreshAllBtn.addEventListener('click', refreshAll);
+    dom.refreshBalancesBtn.addEventListener('click', loadBalances);
+    dom.refreshReservesBtn.addEventListener('click', loadPair);
+    dom.amountIn.addEventListener('input', calculateOut);
+    dom.fromToken.addEventListener('change', ()=>{ dom.fromLogo.src = LOGOS[dom.fromToken.value]; calculateOut(); });
+    dom.toToken.addEventListener('change', ()=>{ dom.toLogo.src = LOGOS[dom.toToken.value]; calculateOut(); });
+    dom.swapFlip.addEventListener('click', ()=>{ const a=dom.fromToken.value; dom.fromToken.value=dom.toToken.value; dom.toToken.value=a; dom.fromLogo.src = LOGOS[dom.fromToken.value]; dom.toLogo.src = LOGOS[dom.toToken.value]; calculateOut(); });
+    dom.swapBtn.addEventListener('click', doSwap);
+    dom.approveBtn.addEventListener('click', approveForPair);
+    dom.mintBFLBtn && dom.mintBFLBtn.addEventListener('click', mintBFL);
+    dom.addLiquidityBtn && dom.addLiquidityBtn.addEventListener('click', addLiquidity);
+
+    // initial load
+    await Promise.all([loadPair(), loadBalances()]);
+    // set initial logos
+    dom.fromLogo.src = LOGOS[dom.fromToken.value];
+    dom.toLogo.src = LOGOS[dom.toToken.value];
+
+    // expose for console debugging
+    window.DEX = { loadPair, loadBalances, doSwap, calculateOut, addLiquidity, mintBFL };
+
+    log('UI ready — you can interact with the DEX now');
   })();
   </script>
 </body>
