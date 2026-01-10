@@ -205,7 +205,7 @@
 
     // read provider => Alchemy (stable for reads)
     const readProvider = new ethers.JsonRpcProvider(ALCHEMY_RPC, { name: "monad", chainId: CHAIN_ID });
-    $("rpcUrl").textContent = ALCHEMY_RPC;
+    if ($("rpcUrl")) $("rpcUrl").textContent = ALCHEMY_RPC;
 
     // write provider (set after connect)
     let walletProvider = null;
@@ -234,17 +234,37 @@
       return `${whole.toString()}.${s}`;
     }
 
+    // -------------------------
+    // Robust raw-getReserves parser (handles 2 or 3 return words)
+    // -------------------------
     async function loadPair(){
       try{
-        const pair = new ethers.Contract(ADDRESSES.PAIR, ABIS.PAIR, readProvider);
-        const [t0, t1] = await Promise.all([pair.token0(), pair.token1()]);
-        const reserves = await pair.getReserves();
-        const r0 = BigInt(reserves[0].toString ? reserves[0].toString() : reserves[0]);
-        const r1 = BigInt(reserves[1].toString ? reserves[1].toString() : reserves[1]);
+        const pairAddr = ADDRESSES.PAIR;
+        // call token0/token1 normally
+        const pairContract = new ethers.Contract(pairAddr, ["function token0() view returns (address)", "function token1() view returns (address)"], readProvider);
+        const [t0, t1] = await Promise.all([pairContract.token0(), pairContract.token1()]);
+
+        // build iface for getReserves (we'll encode then call raw)
+        const iface = new ethers.Interface([ "function getReserves() view returns (uint112,uint112,uint32)" ]);
+        const data = iface.encodeFunctionData("getReserves", []);
+        const raw = await readProvider.call({ to: pairAddr, data });
+
+        if (!raw || raw === "0x") throw new Error("empty getReserves result");
+        const hex = raw.slice(2);
+        const wordLen = 64; // 32 bytes = 64 hex chars
+        const words = [];
+        for (let i = 0; i < hex.length; i += wordLen) {
+          words.push(hex.slice(i, i + wordLen));
+        }
+        // parse r0, r1 from first two words
+        const r0 = BigInt("0x" + (words[0] || "0"));
+        const r1 = BigInt("0x" + (words[1] || "0"));
+
         pairInfo.token0 = t0.toLowerCase();
         pairInfo.token1 = t1.toLowerCase();
         pairInfo.reserve0 = r0;
         pairInfo.reserve1 = r1;
+
         pairInfo.dec0 = await ensureDecimals(pairInfo.token0);
         pairInfo.dec1 = await ensureDecimals(pairInfo.token1);
 
@@ -254,9 +274,9 @@
         if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(r1, pairInfo.dec1);
 
         updatePrice();
-        log("pair refreshed");
+        log("Pair loaded (raw parser)");
       }catch(e){
-        log("loadPair error: " + (e.message || e));
+        log("loadPair error: " + (e && e.message ? e.message : String(e)));
       }
     }
 
@@ -274,7 +294,7 @@
         if ($("toBalance")) $("toBalance").textContent = $("balanceBFL") ? $("balanceBFL").textContent : "-";
         log("balances refreshed");
       }catch(e){
-        log("loadBalances error: " + (e.message || e));
+        log("loadBalances error: " + (e && e.message ? e.message : String(e)));
       }
     }
 
@@ -293,6 +313,7 @@
         reserveBFL  = reserve0; dBFL  = dec0;
       } else return null;
       if (reserveBFL === 0n) return null;
+      // safe float scaling
       const numerator = Number(reserveUSDC) * Math.pow(10, dBFL);
       const denominator = Number(reserveBFL) * Math.pow(10, dUSDC);
       return numerator / denominator;
@@ -336,7 +357,7 @@
       walletProvider = wp;
       signer = await walletProvider.getSigner();
       user = await signer.getAddress();
-      $("walletDisplay").textContent = `${user.slice(0,6)}...${user.slice(-4)}`;
+      if ($("walletDisplay")) $("walletDisplay").textContent = `${user.slice(0,6)}...${user.slice(-4)}`;
       log("Connected injected wallet: " + user);
       await loadBalances();
     }
@@ -352,7 +373,7 @@
       walletProvider = new ethers.BrowserProvider(provider);
       signer = await walletProvider.getSigner();
       user = await signer.getAddress();
-      $("walletDisplay").textContent = `${user.slice(0,6)}...${user.slice(-4)}`;
+      if ($("walletDisplay")) $("walletDisplay").textContent = `${user.slice(0,6)}...${user.slice(-4)}`;
       log("Connected via Web3Auth: " + user);
       await loadBalances();
     }
@@ -360,10 +381,10 @@
     async function connectWallet(){
       try{
         if (window.Web3Auth && WEB3AUTH_CLIENT_ID) {
-          try { await connectWeb3Auth(); return; } catch(err){ log("Web3Auth failed, falling back: " + (err.message||err)); }
+          try { await connectWeb3Auth(); return; } catch(err){ log("Web3Auth failed, falling back: " + (err && err.message ? err.message : String(err))); }
         }
         await connectInjected();
-      } catch(e){ log("connectWallet error: " + (e.message||e)); }
+      } catch(e){ log("connectWallet error: " + (e && e.message ? e.message : String(e))); }
     }
 
     // UI interactions
@@ -371,7 +392,9 @@
     if ($("fromLogo")) $("fromLogo").src = LOGOS[$("fromToken").value];
     if ($("toLogo")) $("toLogo").src = LOGOS[$("toToken").value];
 
-    // Approve
+    // -------------------------
+    // Approve with pending-request handling
+    // -------------------------
     async function approveForPair(){
       if (!signer || !user) { alert("Connect wallet first"); return; }
       const fromSel = $("fromToken").value;
@@ -381,39 +404,88 @@
       if (!amt || Number(amt) <= 0) { alert("Enter amount"); return; }
       const bn = toBase(amt, dec);
       const token = new ethers.Contract(addr, ABIS.ERC20, signer);
-      const tx = await token.approve(ADDRESSES.PAIR, bn);
-      log("approve tx: " + tx.hash);
-      await tx.wait();
-      log("approve confirmed");
+
+      $("approveBtn").disabled = true;
+      log('Approving pair...');
+
+      try {
+        const tx = await token.approve(ADDRESSES.PAIR, bn);
+        log('Approve tx: ' + tx.hash);
+        await tx.wait();
+        log('Approve confirmed');
+      } catch (err) {
+        if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
+          alert('A wallet request is already pending — please confirm or cancel it in your wallet and try again.');
+          log('Approve aborted: wallet already has a pending request.');
+        } else {
+          log('Approve failed: ' + (err && err.message ? err.message : String(err)));
+          console.error(err);
+        }
+      } finally {
+        $("approveBtn").disabled = false;
+      }
     }
 
-    // Swap
+    // -------------------------
+    // Swap with pending-request handling
+    // -------------------------
     async function doSwap(){
       if (!signer || !user) { alert("Connect wallet first"); return; }
       try{
+        $("swapBtn").disabled = true;
         const fromSel = $("fromToken").value;
+        if (fromSel === $("toToken").value) { alert('Choose different tokens'); $("swapBtn").disabled = false; return; }
+
         const addrFrom = (fromSel === "USDC") ? ADDRESSES.USDC : ADDRESSES.BFL;
         const decIn = await ensureDecimals(addrFrom);
         const amountIn = $("amountIn").value;
-        if (!amountIn || Number(amountIn) <= 0) { alert("enter amount"); return; }
+        if (!amountIn || Number(amountIn) <= 0) { alert('Enter amount'); $("swapBtn").disabled=false; return; }
         const amountInBN = toBase(amountIn, decIn);
 
         const token = new ethers.Contract(addrFrom, ABIS.ERC20, signer);
         const pair = new ethers.Contract(ADDRESSES.PAIR, ABIS.PAIR, signer);
 
+        // check allowance
         const allowance = BigInt((await token.allowance(user, ADDRESSES.PAIR)).toString());
         if (allowance < amountInBN) {
-          log("approving...");
-          const a = await token.approve(ADDRESSES.PAIR, amountInBN);
-          log("approve tx: " + a.hash); await a.wait(); log("approved");
+          log('Approving required before swap...');
+          try {
+            const aTx = await token.approve(ADDRESSES.PAIR, amountInBN);
+            log('Approve tx: ' + aTx.hash);
+            await aTx.wait();
+            log('Approve confirmed');
+          } catch (err) {
+            if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
+              alert('Wallet already has a pending request — confirm/cancel it and then try again.');
+              $("swapBtn").disabled = false;
+              return;
+            }
+            throw err;
+          }
+        } else {
+          log('Allowance sufficient');
         }
 
-        log("transfer to pair...");
-        const t = await token.transfer(ADDRESSES.PAIR, amountInBN);
-        log("transfer tx: " + t.hash); await t.wait(); log("transfer confirmed");
+        // transfer to pair
+        log('Transferring to pair...');
+        try {
+          const ttx = await token.transfer(ADDRESSES.PAIR, amountInBN);
+          log('Transfer tx: ' + ttx.hash);
+          await ttx.wait();
+          log('Transfer confirmed');
+        } catch (err) {
+          if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
+            alert('Wallet already has a pending request — confirm/cancel it and then try again.');
+            $("swapBtn").disabled = false;
+            return;
+          }
+          throw err;
+        }
 
-        // refresh pair and compute expected out
+        // refresh pair for fresh reserves
         await loadPair();
+
+        // compute expected out
         const addrFromLower = addrFrom.toLowerCase();
         const reserveIn = pairInfo.token0 === addrFromLower ? pairInfo.reserve0 : pairInfo.reserve1;
         const reserveOut = pairInfo.token0 === addrFromLower ? pairInfo.reserve1 : pairInfo.reserve0;
@@ -422,11 +494,30 @@
         let amount0Out = 0n, amount1Out = 0n;
         if (pairInfo.token0 === addrFromLower) amount1Out = expectedOut; else amount0Out = expectedOut;
 
-        log("calling swap...");
-        const s = await pair.swap(amount0Out, amount1Out, user, "0x");
-        log("swap tx: " + s.hash); await s.wait(); log("swap confirmed");
-        await loadBalances(); await loadPair();
-      }catch(e){ log("swap failed: " + (e.message||e)); console.error(e); }
+        // call swap
+        try {
+          log('Calling swap...');
+          const sTx = await pair.swap(amount0Out, amount1Out, user, '0x');
+          log('Swap tx: ' + sTx.hash);
+          await sTx.wait();
+          log('Swap confirmed');
+          await loadBalances();
+          await loadPair();
+        } catch (err) {
+          if (err && (err.code === -32002 || (err.message && err.message.includes('already pending')))) {
+            alert('Wallet already has a pending request — confirm/cancel it and then try again.');
+            log('Swap aborted: wallet request pending.');
+            return;
+          }
+          throw err;
+        }
+
+      } catch (e) {
+        log('Swap failed: ' + (e && e.message ? e.message : String(e)));
+        console.error(e);
+      } finally {
+        $("swapBtn").disabled = false;
+      }
     }
 
     // Utility functions
@@ -474,9 +565,7 @@
     if ($("swapFlip")) $("swapFlip").addEventListener("click", ()=>{ const a=$("fromToken").value; $("fromToken").value=$("toToken").value; $("toToken").value=a; $("fromLogo").src = LOGOS[$("fromToken").value]; $("toLogo").src = LOGOS[$("toToken").value]; });
 
     // initial load
-    await Promise.all([loadPair()]);
-    // note: balances load requires wallet connection
-
+    await loadPair();
     // initial logos
     if ($("fromLogo")) $("fromLogo").src = LOGOS[$("fromToken").value] || "";
     if ($("toLogo")) $("toLogo").src = LOGOS[$("toToken").value] || "";
