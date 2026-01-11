@@ -1048,27 +1048,77 @@
     }
 
     /* ==========================
-       App init and events
+       App init and events (fixed wiring)
        ========================== */
     document.addEventListener("DOMContentLoaded", async () => {
       log("Monad DEX initializing...", "info");
       if ($("rpcUrl")) $("rpcUrl").textContent = "hidden";
       if ($("rpcUrlTop")) $("rpcUrlTop").textContent = "hidden";
 
-      // Events
-      if ($("connectBtn")) { /* updateWalletUI will set onclick */ }
-      if ($("approveBtn")) $("approveBtn").addEventListener("click", handleApprove);
-      if ($("swapBtn")) $("swapBtn").addEventListener("click", handleSwap);
-      if ($("mintBFLBtn")) $("mintBFLBtn").addEventListener("click", handleMintBFL);
-      if ($("addLiquidityBtn")) $("addLiquidityBtn").addEventListener("click", handleAddLiquidity);
+      // --- Event wiring (robust, avoids undefined handler errors) ---
+
+      // Connect / Disconnect (attach reliable listener)
+      if ($("connectBtn") && !$("connectBtn").dataset.listenerAttached) {
+        $("connectBtn").dataset.listenerAttached = "1";
+        $("connectBtn").addEventListener("click", async (e) => {
+          try {
+            if (userAddress) {
+              if (typeof disconnectWallet === "function") await disconnectWallet();
+              else log("disconnectWallet not defined", "error");
+            } else {
+              if (typeof connectWallet === "function") await connectWallet();
+              else log("connectWallet not defined", "error");
+            }
+          } catch (err) {
+            console.error("connectBtn handler error:", err);
+            log("Connection handler error: " + (err?.message || err), "error");
+          }
+        });
+      }
+
+      // Approve
+      if ($("approveBtn")) {
+        $("approveBtn").addEventListener("click", async (e) => {
+          if (typeof handleApprove === "function") await handleApprove(e);
+          else log("handleApprove not defined", "error");
+        });
+      }
+
+      // Swap
+      if ($("swapBtn")) {
+        $("swapBtn").addEventListener("click", async (e) => {
+          if (typeof handleSwap === "function") await handleSwap(e);
+          else log("handleSwap not defined", "error");
+        });
+      }
+
+      // Mint BFL (safe wrapper)
+      if ($("mintBFLBtn")) {
+        $("mintBFLBtn").addEventListener("click", async (e) => {
+          if (typeof handleMintBFL === "function") await handleMintBFL(e);
+          else log("handleMintBFL not defined", "error");
+        });
+      }
+
+      // Add liquidity
+      if ($("addLiquidityBtn")) {
+        $("addLiquidityBtn").addEventListener("click", async (e) => {
+          if (typeof handleAddLiquidity === "function") await handleAddLiquidity(e);
+          else log("handleAddLiquidity not defined", "error");
+        });
+      }
+
+      // Refresh balances/reserves
       if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", loadBalances);
       if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
       if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => { await Promise.all([loadBalances(), loadPairReserves()]); });
 
+      // Token selection / input events
       if ($("fromToken")) $("fromToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
       if ($("toToken")) $("toToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
       if ($("amountIn")) $("amountIn").addEventListener("input", updateOutputEstimate);
 
+      // Swap flip
       if ($("swapFlip")) $("swapFlip").addEventListener("click", () => {
         const fromVal = $("fromToken").value; const toVal = $("toToken").value;
         $("fromToken").value = toVal; $("toToken").value = fromVal;
@@ -1081,10 +1131,12 @@
         updateChart(candles);
       });
 
+      // --- end event wiring ---
+
       updateTokenLogos();
       initChart();
 
-      // wire connect button handler and set initial UI
+      // Set initial wallet UI (connect button will be wired here)
       updateWalletUI();
 
       await loadPairReserves();
