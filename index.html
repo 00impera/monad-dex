@@ -316,11 +316,8 @@
             <button id="addLiquidityBtn" class="btn btn-primary">Add Liquidity</button>
           </div>
         </div>
-
-        <!-- Order book omitted for brevity -->
       </section>
 
-      <!-- Right column omitted for brevity (unchanged) -->
       <aside>
         <div class="card" style="margin-bottom:12px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -605,30 +602,59 @@
       }
     }
 
-    async function loadBalances() {
-      if (!userAddress) { log("No wallet connected - skipping balance load", "warning"); return; }
-      try {
-        log("Loading balances for " + userAddress.slice(0,8) + "...", "debug");
-        const usdcC = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
-        const bflC = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
-        const [usdcBal, bflBal] = await Promise.all([usdcC.balanceOf(userAddress), bflC.balanceOf(userAddress)]);
-        const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
-        const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
-        const formattedUSDC = formatAmount(usdcBal, usdcDec);
-        const formattedBFL = formatAmount(bflBal, bflDec);
-        $("balanceUSDC").textContent = formattedUSDC;
-        $("balanceBFL").textContent = formattedBFL;
-        $("fromBalance").textContent = formattedUSDC;
-        $("toBalance").textContent = formattedBFL;
-        log("✓ Balances loaded: " + formattedUSDC + " USDC, " + formattedBFL + " BFL", "info");
-      } catch (err) {
-        log("Balance load failed: " + err.message, "error");
+    /* ==========================
+       Error detection helpers (robust -32002 handling)
+       ========================== */
+
+    function isPendingRequest(err) {
+      if (!err) return false;
+      const candidates = [
+        err?.code,
+        err?.error?.code,
+        err?.data?.code,
+        err?.error?.data?.code,
+        err?.error?.error?.code
+      ];
+      for (const c of candidates) {
+        if (c === -32002 || String(c) === "-32002") return true;
       }
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (!msg) return false;
+      if (msg.includes("already pending") || msg.includes("public_signtransaction") || msg.includes("public_signtransaction") || msg.includes("request of type") && msg.includes("already pending")) return true;
+      return false;
+    }
+
+    const WALLET_ERROR_MESSAGES = {
+      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
+      '4001': 'Transaction cancelled by the user.',
+      '4100': 'The requested account and/or method has not been authorized.',
+      '4900': 'The provider is disconnected. Please reconnect your wallet.',
+      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
+      '-32603': 'Internal error. Please try again.',
+    };
+
+    function getWalletErrorMessage(err) {
+      if (!err) return 'Unknown error';
+      const nestedCodes = [ err?.code, err?.error?.code, err?.data?.code, err?.error?.data?.code ];
+      for (const c of nestedCodes) {
+        if (typeof c !== 'undefined' && c !== null) {
+          const key = String(c);
+          if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
+        }
+      }
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
+        return WALLET_ERROR_MESSAGES['-32002'];
+      }
+      if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
+      if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
+      return err?.message || JSON.stringify(err);
     }
 
     /* ==========================
-       Pair reserves & price + chart
+       Pair / chart / trading logic (unchanged structure)
        ========================== */
+
     let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
 
     async function loadPairReserves() {
@@ -643,10 +669,10 @@
           dec0, dec1
         };
         updatePairUI();
-        updatePrice(); // will push data to chart
+        updatePrice();
         log("Pair reserves loaded", "debug");
       } catch (err) {
-        log("Pair load error: " + err.message, "error");
+        log("Pair load error: " + getWalletErrorMessage(err), "error");
       }
     }
 
@@ -727,28 +753,7 @@
     }
 
     /* ==========================
-       Error mapping & detection
-       ========================== */
-    const WALLET_ERROR_MESSAGES = {
-      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
-      '4001': 'Transaction cancelled by the user.',
-      '4100': 'The requested account and/or method has not been authorized.',
-      '4900': 'The provider is disconnected. Please reconnect your wallet.',
-      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
-      '-32603': 'Internal error. Please try again.',
-    };
-
-    function getWalletErrorMessage(err) {
-      if (!err) return 'Unknown error';
-      const code = String(err.code || err?.data?.code || '');
-      if (WALLET_ERROR_MESSAGES[code]) return WALLET_ERROR_MESSAGES[code];
-      if (err.message?.toLowerCase().includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
-      if (err.message?.toLowerCase().includes('user rejected') || code === '4001') return 'Transaction rejected by user';
-      return err.message || JSON.stringify(err);
-    }
-
-    /* ==========================
-       Tx guard and safer handlers
+       Tx guard and safer handlers (with robust -32002 detection/marking)
        ========================== */
     let txInProgress = false;
 
@@ -771,19 +776,28 @@
         const amount = parseAmount(amountIn, decimals);
         const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
 
-        let tx;
+        // inner try/catch to detect pending request and mark handled
         try {
-          tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
-        } catch (err) {
-          log(getWalletErrorMessage(err), "warning");
-          throw err;
+          const tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
+          log("Approval pending: " + tx.hash.slice(0,10) + "...", "debug");
+          await tx.wait();
+          log("✅ Approved " + amountIn + " " + fromToken, "info");
+        } catch (innerErr) {
+          // detect pending request (-32002) in nested error shapes and message text
+          if (isPendingRequest(innerErr)) {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          } else {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          }
+          throw innerErr;
         }
-
-        log("Approval pending: " + tx.hash.slice(0,10) + "...", "debug");
-        await tx.wait();
-        log("✅ Approved " + amountIn + " " + fromToken, "info");
       } catch (err) {
-        if (![ -32002, 4001 ].includes(err?.code)) log("Approval failed: " + getWalletErrorMessage(err), "error");
+        // avoid duplicate logs if inner catch already logged
+        if (!err?._handled) {
+          log("Approval failed: " + getWalletErrorMessage(err), "error");
+        }
         console.error(err);
       } finally {
         txInProgress = false;
@@ -822,12 +836,19 @@
         log("Transferring " + fromToken + " to pair...", "debug");
         const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
 
+        // transfer
         let transferTx;
         try {
           transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
-        } catch (err) {
-          log(getWalletErrorMessage(err), "warning");
-          throw err;
+        } catch (innerErr) {
+          if (isPendingRequest(innerErr)) {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          } else {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          }
+          throw innerErr;
         }
 
         log("Transfer submitted: " + transferTx.hash.slice(0,10) + "...", "debug");
@@ -839,21 +860,27 @@
         let amount0Out = 0n, amount1Out = 0n;
         if (toAddr.toLowerCase() === pairCache.token0) amount0Out = minOut; else amount1Out = minOut;
 
-        let swapTx;
         try {
-          swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
-        } catch (err) {
-          log(getWalletErrorMessage(err), "warning");
-          throw err;
+          const swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
+          log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
+          await swapTx.wait();
+          log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+          await loadBalances(); await loadPairReserves();
+        } catch (innerErr) {
+          if (isPendingRequest(innerErr)) {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          } else {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          }
+          throw innerErr;
         }
 
-        log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
-        await swapTx.wait();
-
-        log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
-        await loadBalances(); await loadPairReserves();
       } catch (err) {
-        if (![ -32002, 4001 ].includes(err?.code)) log("Swap failed: " + getWalletErrorMessage(err), "error");
+        if (!err?._handled) {
+          log("Swap failed: " + getWalletErrorMessage(err), "error");
+        }
         console.error(err);
       } finally {
         txInProgress = false;
@@ -879,7 +906,7 @@
     }
 
     /* ==========================
-       updateOutputEstimate (ADDED)
+       updateOutputEstimate
        ========================== */
     function updateOutputEstimate() {
       const fromToken = $("fromToken")?.value;
@@ -906,18 +933,34 @@
       if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
       const amount = $("mintBFLAmount")?.value;
       if (!amount || parseFloat(amount) <= 0) { log("Enter amount to mint", "warning"); return; }
+      const btn = $("mintBFLBtn");
+      if (btn) { btn.disabled = true; btn.classList.add('loading'); }
       try {
         log("Minting " + amount + " BFL...", "info");
         const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.BitcoinFlash, signer);
         const decimals = await getDecimals(ADDRESSES.BFL, readProvider);
         const amountBig = parseAmount(amount, decimals);
-        const tx = await bflContract.mint(userAddress, amountBig);
-        log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
-        await tx.wait();
-        log("Minted " + amount + " BFL", "info");
-        await loadBalances();
+        try {
+          const tx = await bflContract.mint(userAddress, amountBig);
+          log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
+          await tx.wait();
+          log("Minted " + amount + " BFL", "info");
+          await loadBalances();
+        } catch (innerErr) {
+          if (isPendingRequest(innerErr)) {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          } else {
+            log(getWalletErrorMessage(innerErr), "warning");
+            innerErr._handled = true;
+          }
+          throw innerErr;
+        }
       } catch (err) {
-        log("Mint failed: " + getWalletErrorMessage(err), "error");
+        if (!err?._handled) log("Mint failed: " + getWalletErrorMessage(err), "error");
+        console.error(err);
+      } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
       }
     }
 
@@ -926,30 +969,56 @@
       const usdcAmount = $("liquidityUSDC")?.value;
       const bflAmount = $("liquidityBFL")?.value;
       if (!usdcAmount || !bflAmount || parseFloat(usdcAmount) <= 0 || parseFloat(bflAmount) <= 0) { log("Enter both USDC and BFL amounts", "warning"); return; }
+      const btn = $("addLiquidityBtn");
+      if (btn) { btn.disabled = true; btn.classList.add('loading'); }
       try {
         log("Adding liquidity: " + usdcAmount + " USDC + " + bflAmount + " BFL", "info");
         const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
         const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
         const usdcBig = parseAmount(usdcAmount, usdcDec);
         const bflBig = parseAmount(bflAmount, bflDec);
-        log("Transferring USDC to pair...", "debug");
-        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
-        const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
-        await usdcTx.wait();
-        log("Transferring BFL to pair...", "debug");
-        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
-        const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
-        await bflTx.wait();
-        log("Minting LP tokens...", "debug");
-        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
-        const mintTx = await pair.mint(userAddress);
-        await mintTx.wait();
-        log("Liquidity added successfully!", "info");
-        await loadBalances(); await loadPairReserves();
-        if ($("liquidityUSDC")) $("liquidityUSDC").value = "";
-        if ($("liquidityBFL")) $("liquidityBFL").value = "";
+
+        // transfer USDC
+        try {
+          const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
+          const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
+          await usdcTx.wait();
+        } catch (innerErr) {
+          if (isPendingRequest(innerErr)) { log(getWalletErrorMessage(innerErr), "warning"); innerErr._handled = true; }
+          else { log(getWalletErrorMessage(innerErr), "warning"); innerErr._handled = true; }
+          throw innerErr;
+        }
+
+        // transfer BFL
+        try {
+          const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
+          const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
+          await bflTx.wait();
+        } catch (innerErr) {
+          if (isPendingRequest(innerErr)) { log(getWalletErrorMessage(innerErr), "warning"); innerErr._handled = true; }
+          else { log(getWalletErrorMessage(innerErr), "warning"); innerErr._handled = true; }
+          throw innerErr;
+        }
+
+        // mint LP
+        try {
+          const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+          const mintTx = await pair.mint(userAddress);
+          await mintTx.wait();
+          log("Liquidity added successfully!", "info");
+          await loadBalances(); await loadPairReserves();
+          if ($("liquidityUSDC")) $("liquidityUSDC").value = "";
+          if ($("liquidityBFL")) $("liquidityBFL").value = "";
+        } catch (innerErr) {
+          if (isPendingRequest(innerErr)) { log(getWalletErrorMessage(innerErr), "warning"); innerErr._handled = true; }
+          else { log(getWalletErrorMessage(innerErr), "warning"); innerErr._handled = true; }
+          throw innerErr;
+        }
       } catch (err) {
-        log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
+        if (!err?._handled) log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
+        console.error(err);
+      } finally {
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
       }
     }
 
