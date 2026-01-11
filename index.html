@@ -1315,7 +1315,103 @@ function updateWalletUI() {
         dumpError(err);
       }
     }
+async function handleAddLiquidity() {
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+      const usdcAmount = $("liquidityUSDC")?.value;
+      const bflAmount = $("liquidityBFL")?.value;
+      if (!usdcAmount || !bflAmount || parseFloat(usdcAmount) <= 0 || parseFloat(bflAmount) <= 0) { log("Enter both USDC and BFL amounts", "warning"); return; }
+      try {
+        log("Adding liquidity: " + usdcAmount + " USDC + " + bflAmount + " BFL", "info");
+        const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
+        const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
+        const usdcBig = parseAmount(usdcAmount, usdcDec);
+        const bflBig = parseAmount(bflAmount, bflDec);
+        log("Transferring USDC to pair...", "debug");
+        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
+        const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
+        await usdcTx.wait();
+        log("Transferring BFL to pair...", "debug");
+        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
+        const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
+        await bflTx.wait();
+        log("Minting LP tokens...", "debug");
+        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+        const mintTx = await pair.mint(userAddress);
+        await mintTx.wait();
+        log("Liquidity added successfully!", "info");
+        await loadBalances(); await loadPairReserves();
+        if ($("liquidityUSDC")) $("liquidityUSDC").value = "";
+        if ($("liquidityBFL")) $("liquidityBFL").value = "";
+      } catch (err) {
+        log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
+        dumpError(err);
+      }
+    }
 
+    /* ==========================
+       Diagnostic function to test USDC contract
+       ========================== */
+    async function diagnoseUSDC() {
+      if (!signer || !userAddress) { log("Connect wallet first", "warning"); return; }
+      
+      try {
+        log("=== USDC Contract Diagnostics ===", "info");
+        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
+        const usdcWithSigner = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
+        
+        const code = await readProvider.getCode(ADDRESSES.USDC);
+        log("✓ Contract exists (code length: " + code.length + ")", "debug");
+        
+        const balance = await usdcContract.balanceOf(userAddress);
+        log("✓ Your USDC balance: " + formatAmount(balance, 6), "debug");
+        
+        const decimals = await usdcContract.decimals();
+        log("✓ USDC decimals: " + decimals, "debug");
+        
+        const allowance = await usdcContract.allowance(userAddress, ADDRESSES.PAIR_USDC_BFL);
+        log("✓ Current allowance: " + formatAmount(allowance, 6), "debug");
+        
+        try {
+          const tinyAmount = parseAmount("0.000001", 6);
+          const selfTransferGas = await usdcWithSigner.transfer.estimateGas(userAddress, tinyAmount);
+          log("✓ Self-transfer estimate works: " + selfTransferGas.toString(), "debug");
+        } catch (err) {
+          log("✗ Self-transfer estimate FAILED: " + err.message, "error");
+          dumpError(err);
+        }
+        
+        try {
+          const tinyAmount = parseAmount("0.000001", 6);
+          const pairTransferGas = await usdcWithSigner.transfer.estimateGas(ADDRESSES.PAIR_USDC_BFL, tinyAmount);
+          log("✓ Pair-transfer estimate works: " + pairTransferGas.toString(), "debug");
+        } catch (err) {
+          log("✗ Pair-transfer estimate FAILED: " + err.message, "error");
+          dumpError(err);
+        }
+        
+        try {
+          const approveAmount = parseAmount("0.000001", 6);
+          const approveGas = await usdcWithSigner.approve.estimateGas(ADDRESSES.PAIR_USDC_BFL, approveAmount);
+          log("✓ Approve estimate works: " + approveGas.toString(), "debug");
+        } catch (err) {
+          log("✗ Approve estimate FAILED: " + err.message, "error");
+          dumpError(err);
+        }
+        
+        log("=== Diagnostics Complete ===", "info");
+      } catch (err) {
+        log("Diagnostics failed: " + err.message, "error");
+        dumpError(err);
+      }
+    }
+
+    window.diagnoseUSDC = diagnoseUSDC;
+
+    /* ==========================
+       App init and events
+       ========================== */
+    document.addEventListener("DOMContentLoaded", async () => {
+      // rest of your code continues here...
     /* ==========================
        App init and events
        ========================== */
