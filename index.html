@@ -1083,13 +1083,13 @@ function updateWalletUI() {
         const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
 
         // estimateGas for approve (diagnostic)
-        try {
-          const gasEst = await tokenContract.estimateGas.approve(ADDRESSES.PAIR_USDC_BFL, amount);
-          log("approve.estimateGas => " + gasEst.toString(), "debug");
-        } catch (estErr) {
-          log("Approve gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
-          dumpError(estErr);
-        }
+      try {
+        const gasEst = await tokenContract.approve.estimateGas(ADDRESSES.PAIR_USDC_BFL, amount);
+        log("approve.estimateGas => " + gasEst.toString(), "debug");
+}       catch (estErr) {
+        log("Approve gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
+        dumpError(estErr);
+} 
 
         let tx;
         try {
@@ -1154,13 +1154,13 @@ function updateWalletUI() {
         // 1) quick simulate transfer/transfer revert check via estimateGas
         const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
         try {
-          const estimate = await tokenContract.estimateGas.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
-          log("transfer.estimateGas => " + estimate.toString(), "debug");
-        } catch (errEst) {
-          log("Transfer estimate failed (will NOT send): " + getWalletErrorMessage(errEst), "error");
-          dumpError(errEst);
-          throw errEst;
-        }
+        const estimate = await tokenContract.transfer.estimateGas(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+        log("transfer.estimateGas => " + estimate.toString(), "debug");
+     }  catch (errEst) {
+        log("Transfer estimate failed (will NOT send): " + getWalletErrorMessage(errEst), "error");
+        dumpError(errEst);
+       throw errEst;
+  }
 
         // 2) send transfer
         let transferTx;
@@ -1191,12 +1191,12 @@ function updateWalletUI() {
         }
 
         // 5) estimate gas for swap (diagnostic)
-        try {
-          const gasEstimate = await pair.estimateGas.swap(amount0Out, amount1Out, userAddress, "0x");
-          log("swap.estimateGas => " + gasEstimate.toString(), "debug");
-        } catch (estErr) {
-          log("Swap gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
-          dumpError(estErr);
+       try {
+       const gasEstimate = await pair.swap.estimateGas(amount0Out, amount1Out, userAddress, "0x");
+       log("swap.estimateGas => " + gasEstimate.toString(), "debug");
+    }  catch (estErr) {
+       log("Swap gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
+       dumpError(estErr);
           // continue — sometimes estimateGas fails on some RPCs despite callStatic success
         }
 
@@ -1262,13 +1262,13 @@ function updateWalletUI() {
         const amountBig = parseAmount(amount, decimals);
 
         // diagnostic estimateGas
-        try {
-          const est = await bflContract.estimateGas.mint(userAddress, amountBig);
-          log("mint.estimateGas => " + est.toString(), "debug");
-        } catch (estErr) {
-          log("Mint gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
-          dumpError(estErr);
-        }
+       try {
+        const est = await bflContract.mint.estimateGas(userAddress, amountBig);
+        log("mint.estimateGas => " + est.toString(), "debug");
+      } catch (estErr) {
+        log("Mint gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
+        dumpError(estErr);
+      } 
 
         const tx = await bflContract.mint(userAddress, amountBig);
         log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
