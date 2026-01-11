@@ -916,7 +916,10 @@
       return numerator / denominator;
     }
 
-    // Swap handlers
+    // Tx guard flag to prevent duplicate/pending requests
+    let txInProgress = false;
+
+    // Swap handlers (safer: disables UI, prevents duplicate calls, handles -32002 wallet pending error)
     async function handleApprove() {
       if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
       const fromToken = $("fromToken").value;
@@ -938,37 +941,106 @@
     }
 
     async function handleSwap() {
-      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
-      const fromToken = $("fromToken").value;
-      const toToken = $("toToken").value;
-      const amountIn = $("amountIn").value;
-      const slippage = parseFloat($("slippage").value) || 0.5;
-      if (!amountIn || parseFloat(amountIn) <= 0) { log("Enter swap amount", "warning"); return; }
-      if (fromToken === toToken) { log("Select different tokens", "warning"); return; }
+      if (txInProgress) {
+        log("Transaction already in progress — please wait", "warning");
+        return;
+      }
+
+      if (!signer || !userAddress) {
+        log("Please connect wallet first", "warning");
+        return;
+      }
+
+      const swapBtn = $("swapBtn");
+      txInProgress = true;
+      if (swapBtn) swapBtn.disabled = true;
+
       try {
+        const fromToken = $("fromToken").value;
+        const toToken = $("toToken").value;
+        const amountIn = $("amountIn").value;
+        const slippage = parseFloat($("slippage").value) || 0.5;
+
+        if (!amountIn || parseFloat(amountIn) <= 0) {
+          log("Enter swap amount", "warning");
+          return;
+        }
+        if (fromToken === toToken) {
+          log("Select different tokens", "warning");
+          return;
+        }
+
         log("Initiating swap: " + amountIn + " " + fromToken + " → " + toToken, "info");
+
         const fromAddr = getTokenAddress(fromToken);
         const toAddr = getTokenAddress(toToken);
         const fromDec = await getDecimals(fromAddr, readProvider);
         const toDec = await getDecimals(toAddr, readProvider);
+
         const amountInBig = parseAmount(amountIn, fromDec);
         const expectedOut = calculateOutput(amountIn, fromToken, toToken);
         const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
+
+        // Transfer tokens to pair (this triggers wallet prompt)
         log("Transferring " + fromToken + " to pair...", "debug");
         const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
-        const transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+
+        // Send transfer and wait for user to approve/send
+        let transferTx;
+        try {
+          transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+        } catch (err) {
+          // Common wallet pending error code from MetaMask / walletconnect
+          if (err && err.code === -32002) {
+            log("Wallet already has a pending request — please confirm or cancel it in your wallet", "warning");
+          } else {
+            log("Transfer failed: " + (err.message || err), "error");
+          }
+          throw err;
+        }
+
+        log("Transfer submitted: " + transferTx.hash.slice(0,10) + "...", "debug");
         await transferTx.wait();
+
+        // Execute swap (this triggers a second wallet prompt)
         log("Executing swap...", "debug");
         const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
-        let amount0Out = 0n; let amount1Out = 0n;
-        if (toAddr.toLowerCase() === pairCache.token0) amount0Out = minOut; else amount1Out = minOut;
-        const swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
-        log("Swap pending: " + swapTx.hash.slice(0, 10) + "...", "debug");
+
+        let amount0Out = 0n;
+        let amount1Out = 0n;
+        if (toAddr.toLowerCase() === pairCache.token0) {
+          amount0Out = minOut;
+        } else {
+          amount1Out = minOut;
+        }
+
+        let swapTx;
+        try {
+          swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
+        } catch (err) {
+          if (err && err.code === -32002) {
+            log("Wallet already has a pending request — please confirm or cancel it in your wallet", "warning");
+          } else {
+            log("Swap transaction failed to submit: " + (err.message || err), "error");
+          }
+          throw err;
+        }
+
+        log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
         await swapTx.wait();
+
         log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
-        await loadBalances(); await loadPairReserves();
+        await loadBalances();
+        await loadPairReserves();
+
       } catch (error) {
-        log("Swap failed: " + error.message, "error"); console.error(error);
+        // keep error logging consistent
+        if (error && error.message) log("Swap failed: " + error.message, "error");
+        else log("Swap failed", "error");
+        console.error(error);
+      } finally {
+        txInProgress = false;
+        if (swapBtn) swapBtn.disabled = false;
       }
     }
 
