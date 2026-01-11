@@ -4,46 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Monad DEX — USDC ↔ BitcoinFlash (BFL) — Live</title>
-  <style>
-    /* Styling (kept compact) */
-    :root{
-      --bg:#0B1220;
-      --card:#0E1A2B;
-      --text:#E6F0FF;
-      --muted:#98A0B3;
-      --accent:#0066FF;
-      --border:rgba(255,255,255,0.08);
-
-      /* Log colors */
-      --log-info: #00E5FF;
-      --log-warning: #FFB300;
-      --log-error: #FF1744;
-      --log-debug: #9C27FF;
-      --log-trace: #9AA0A6;
-    }
-    *{box-sizing:border-box}
-    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,#071126,#041124);color:var(--text);margin:0;padding:20px}
-    .container{max-width:1200px;margin:0 auto}
-    header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);margin-bottom:18px}
-    h1{margin:0;font-size:20px;background:linear-gradient(90deg,#60A5FA,#22D3EE);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .row{display:flex;gap:12px;align-items:center}
-    .btn{padding:10px 14px;border-radius:10px;border:0;cursor:pointer;font-weight:600}
-    .btn-primary{background:linear-gradient(90deg,var(--accent),#0086ff);color:white}
-    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
-    .main-grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
-    .card{background:rgba(14,26,43,0.8);padding:16px;border-radius:12px;border:1px solid var(--border)}
-    .token-input{display:flex;gap:12px;align-items:center;padding:8px;background:rgba(255,255,255,0.02);border-radius:10px}
-    input,select{background:transparent;border:0;color:var(--text);outline:none}
-    .stat{font-family:monospace;color:#cfe8ff}
-    pre#log{background:rgba(0,0,0,0.35);padding:10px;border-radius:8px;color:var(--log-info);max-height:260px;overflow:auto;white-space:pre-wrap}
-    .small{font-size:13px;color:var(--muted)}
-    .token-logo{width:36px;height:36px;border-radius:8px;object-fit:cover}
-    @media(max-width:980px){.main-grid{grid-template-columns:1fr}}
-    .price-badge{font-family:monospace;color:#bfe6ff;margin-left:12px}
-    /* Log entry styles */
-    .log-entry { display:block; margin-bottom:6px; line-height:1.4; }
-    .log-time { color: var(--muted); margin-right:6px; font-family:monospace; }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
@@ -76,9 +37,9 @@
               <img id="fromLogo" class="token-logo" src="https://files.catbox.moe/ujzf30.gif" alt="USDC">
               <input id="amountIn" type="number" placeholder="0.0" step="any" />
               <select id="fromToken">
-              <option value="USDC">USDC</option>  
-              <option value="BFL">BFL</option>
-              <option value="MDX">MDX</option>
+                <option value="USDC">USDC</option>  
+                <option value="BFL">BFL</option>
+                <option value="MDX">MDX</option>
               </select>
               <div style="margin-left:auto" class="small">Balance: <span id="fromBalance">-</span></div>
             </div>
@@ -94,10 +55,10 @@
               <img id="toLogo" class="token-logo" src="https://files.catbox.moe/lk7mrk.png" alt="BFL">
               <input id="amountOut" type="text" placeholder="0.0" readonly />
               <select id="toToken">
-              <option value="BFL">BFL</option>
-             <option value="USDC">USDC</option>
-             <option value="MDX">MDX</option>
-             </select>
+                <option value="BFL">BFL</option>
+                <option value="USDC">USDC</option>
+                <option value="MDX">MDX</option>
+              </select>
               <div style="margin-left:auto" class="small">Balance: <span id="toBalance">-</span></div>
             </div>
           </div>
@@ -177,16 +138,209 @@
   <!-- External libs -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@1.14.0/dist/index.umd.min.js"></script>
+  
+  <!-- App scripts in order -->
+  <script src="config.js"></script>
+  <script src="utils.js"></script>
+  <script src="wallet.js"></script>
+  <script src="pairs.js"></script>
+  <script src="swap.js"></script>
+  <script src="liquidity.js"></script>
+  <script src="app.js"></script>
+</body>
+</html> 
+ :root {
+  --bg: #0B1220;
+  --card: #0E1A2B;
+  --text: #E6F0FF;
+  --muted: #98A0B3;
+  --accent: #0066FF;
+  --border: rgba(255, 255, 255, 0.08);
+  --log-info: #00E5FF;
+  --log-warning: #FFB300;
+  --log-error: #FF1744;
+  --log-debug: #9C27FF;
+  --log-trace: #9AA0A6;
+}
 
-  <!-- Main logic: reads via Alchemy, writes via connected wallet (MetaMask or Web3Auth) -->
-  <script>
-  (async function(){
-    // ------------- CONFIG -------------
-    const ALCHEMY_RPC = "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk";
-    const CHAIN_ID = 143;
-    const POLL_MS = 15_000;
+* {
+  box-sizing: border-box;
+}
 
- 
+body {
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+  background: linear-gradient(135deg, #071126, #041124);
+  color: var(--text);
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  background: linear-gradient(90deg, #60A5FA, #22D3EE);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 0;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(90deg, var(--accent), #0086ff);
+  color: white;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 18px;
+}
+
+.card {
+  background: rgba(14, 26, 43, 0.8);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.token-input {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+input, select {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  outline: none;
+}
+
+input[type="number"] {
+  flex: 1;
+}
+
+.stat {
+  font-family: monospace;
+  color: #cfe8ff;
+}
+
+pre#log {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--log-info);
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+.small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.token-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.price-badge {
+  font-family: monospace;
+  color: #bfe6ff;
+  margin-left: 12px;
+}
+
+.log-entry {
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.log-time {
+  color: var(--muted);
+  margin-right: 6px;
+  font-family: monospace;
+}
+
+@media (max-width: 980px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+}  
+// Configuration and constants
+const CONFIG = {
+  // Alchemy RPC for read-only operations
+  ALCHEMY_RPC: "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk",
+  
+  // Monad network
+  CHAIN_ID: 143,
+  
+  // Polling interval for balance/reserve updates (15 seconds)
+  POLL_MS: 15000,
+  
+  // ✅ Your Web3Auth Client ID (Plug and Play Web Application)
+  // Network: sapphire_mainnet (Production)
+  // JWKS: https://api-auth.web3auth.io/.well-known/jwks.json
+  WEB3AUTH_CLIENT_ID: "BAsUqhgvieRUFYc8vZwFEUWTn4ThFZCrToMc76Vi-_Jgu1C26Udu3B4ESLjx1d2-kb8ca9hFUdR0U3D_45PgfPc"
+  
+  // ⚠️ IMPORTANT: Never expose your client secret in frontend code!
+  // Client Secret should ONLY be used in backend/server-side code
+  // The secret you provided should NOT be included here
+};
+
+// Contract addresses on Monad
 const ADDRESSES = {
   USDC: "0x754704bc059f8c67012fed69bc8a327a5aafb603",
   BFL: "0x7d7e0112d2763c98238af7cebeae33d53f3f76dd",
@@ -195,1166 +349,67 @@ const ADDRESSES = {
   PAIR_USDC_BFL: "0x57489a99059a41464fe9322864e3b241d96c5d62",
   PAIR_MDX_USDC: "0x72eec70b6058bac9c726caa08cc02406ac1d7e23",
   MASTERCHEF: "0x8dd025006d20ae484e9ac03d044faaba952d321f",
-  ACTIVITY_TRACKER: "0xb007c8e63fdf73989bb30b8866c5b0863fa9853a",
+  ACTIVITY_TRACKER: "0xb007c8e63fdf73989bb30b8866c5b0863fa9853a"
 };
 
- const LOGOS = {
-    [ADDRESSES.USDC]: "https://files.catbox.moe/ujzf30.gif",
-    [ADDRESSES.BFL]: "https://files.catbox.moe/lk7mrk.png",
-    [ADDRESSES.MDX]: "https://files.catbox.moe/g3f9h8.png",
-  };
+// Token logos
+const LOGOS = {
+  [ADDRESSES.USDC]: "https://files.catbox.moe/ujzf30.gif",
+  [ADDRESSES.BFL]: "https://files.catbox.moe/lk7mrk.png",
+  [ADDRESSES.MDX]: "https://files.catbox.moe/g3f9h8.png"
+};
 
-  function getTokenAddress(symbol) {
-    if (symbol === "USDC") return ADDRESSES.USDC;
-    if (symbol === "BFL") return ADDRESSES.BFL;
-    if (symbol === "MDX") return ADDRESSES.MDX;
-    return "";
-  }
-
-  function updateTokenLogos() {
-    $("fromLogo").src = LOGOS[getTokenAddress($("fromToken").value)] || "";
-    $("toLogo").src = LOGOS[getTokenAddress($("toToken").value)] || "";
-  }
-
-  // DOM helper
-  const $ = id => document.getElementById(id);
-
-  // Wire up events
-  if ($("fromToken")) $("fromToken").addEventListener("change", updateTokenLogos);
-  if ($("toToken")) $("toToken").addEventListener("change", updateTokenLogos);
-  if ($("swapFlip"))
-    $("swapFlip").addEventListener("click", () => {
-      const a = $("fromToken").value;
-      $("fromToken").value = $("toToken").value;
-      $("toToken").value = a;
-      updateTokenLogos();
-    });
-  updateTokenLogos();
-
-
-
-    const WEB3AUTH_CLIENT_ID = "BAsUqhgvieRUFYc8vZwFEUWTn4ThFZCrToMc76Vi-_Jgu1C26Udu3B4ESLjx1d2-kb8ca9hFUdR0U3D_45PgfPc";
-
-   const ABIS = {
+// Contract ABIs (only functions we actually use)
+const ABIS = {
+  // Standard ERC20 (works for USDC, BFL, MDX)
   ERC20: [
-  "function balanceOf(address) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-  "function approve(address,uint256) returns (bool)",
-  "function allowance(address,address) view returns (uint256)",
-  "function transfer(address,uint256) returns (bool)"
-],
-  USDCProxy: [
-    {
-      inputs: [
-        {
-          internalType: "address",
-          name: "implementationContract",
-          type: "address",
-        },
-      ],
-      stateMutability: "nonpayable",
-      type: "constructor",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: false,
-          internalType: "address",
-          name: "previousAdmin",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "address",
-          name: "newAdmin",
-          type: "address",
-        },
-      ],
-      name: "AdminChanged",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: false,
-          internalType: "address",
-          name: "implementation",
-          type: "address",
-        },
-      ],
-      name: "Upgraded",
-      type: "event",
-    },
-    { stateMutability: "payable", type: "fallback" },
-    {
-      inputs: [],
-      name: "admin",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "newAdmin", type: "address" }],
-      name: "changeAdmin",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "implementation",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "newImplementation", type: "address" },
-      ],
-      name: "upgradeTo",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "newImplementation", type: "address" },
-        { internalType: "bytes", name: "data", type: "bytes" },
-      ],
-      name: "upgradeToAndCall",
-      outputs: [],
-      stateMutability: "payable",
-      type: "function",
-    },
+    "function balanceOf(address) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+    "function approve(address,uint256) returns (bool)",
+    "function allowance(address,address) view returns (uint256)",
+    "function transfer(address,uint256) returns (bool)"
   ],
-  // BitcoinFlash (BFL) Token
-  BitcoinFlash: [
-    { inputs: [], stateMutability: "nonpayable", type: "constructor" },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "owner",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "spender",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "value",
-          type: "uint256",
-        },
-      ],
-      name: "Approval",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "previousOwner",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "newOwner",
-          type: "address",
-        },
-      ],
-      name: "OwnershipTransferred",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "from",
-          type: "address",
-        },
-        { indexed: true, internalType: "address", name: "to", type: "address" },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "value",
-          type: "uint256",
-        },
-      ],
-      name: "Transfer",
-      type: "event",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "owner", type: "address" },
-        { internalType: "address", name: "spender", type: "address" },
-      ],
-      name: "allowance",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "approve",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "account", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
-      name: "burn",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "decimals",
-      outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "subtractedValue", type: "uint256" },
-      ],
-      name: "decreaseAllowance",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "addedValue", type: "uint256" },
-      ],
-      name: "increaseAllowance",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "mint",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "name",
-      outputs: [{ internalType: "string", name: "", type: "string" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "owner",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "renounceOwnership",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "symbol",
-      outputs: [{ internalType: "string", name: "", type: "string" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "totalSupply",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "transfer",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "from", type: "address" },
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "transferFrom",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-      name: "transferOwnership",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-  ],
-  // MDXToken (Governance/Rewards)
-  MDXToken: [
-    {
-      inputs: [
-        { internalType: "string", name: "name_", type: "string" },
-        { internalType: "string", name: "symbol_", type: "string" },
-      ],
-      stateMutability: "nonpayable",
-      type: "constructor",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "allowance", type: "uint256" },
-        { internalType: "uint256", name: "needed", type: "uint256" },
-      ],
-      name: "ERC20InsufficientAllowance",
-      type: "error",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "sender", type: "address" },
-        { internalType: "uint256", name: "balance", type: "uint256" },
-        { internalType: "uint256", name: "needed", type: "uint256" },
-      ],
-      name: "ERC20InsufficientBalance",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "approver", type: "address" }],
-      name: "ERC20InvalidApprover",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "receiver", type: "address" }],
-      name: "ERC20InvalidReceiver",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "sender", type: "address" }],
-      name: "ERC20InvalidSender",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "spender", type: "address" }],
-      name: "ERC20InvalidSpender",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "owner", type: "address" }],
-      name: "OwnableInvalidOwner",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "account", type: "address" }],
-      name: "OwnableUnauthorizedAccount",
-      type: "error",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "owner",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "spender",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "value",
-          type: "uint256",
-        },
-      ],
-      name: "Approval",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "previousOwner",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "newOwner",
-          type: "address",
-        },
-      ],
-      name: "OwnershipTransferred",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "from",
-          type: "address",
-        },
-        { indexed: true, internalType: "address", name: "to", type: "address" },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "value",
-          type: "uint256",
-        },
-      ],
-      name: "Transfer",
-      type: "event",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "owner", type: "address" },
-        { internalType: "address", name: "spender", type: "address" },
-      ],
-      name: "allowance",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "value", type: "uint256" },
-      ],
-      name: "approve",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "account", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "decimals",
-      outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "mint",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "name",
-      outputs: [{ internalType: "string", name: "", type: "string" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "owner",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "renounceOwnership",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "symbol",
-      outputs: [{ internalType: "string", name: "", type: "string" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "totalSupply",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "value", type: "uint256" },
-      ],
-      name: "transfer",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "from", type: "address" },
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "value", type: "uint256" },
-      ],
-      name: "transferFrom",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-      name: "transferOwnership",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-  ],
-  // UniswapV2Factory
-  UniswapV2Factory: [
-    {
-      inputs: [
-        { internalType: "address", name: "_feeToSetter", type: "address" },
-      ],
-      stateMutability: "nonpayable",
-      type: "constructor",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "token0",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "token1",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "address",
-          name: "pair",
-          type: "address",
-        },
-        { indexed: false, internalType: "uint256", name: "", type: "uint256" },
-      ],
-      name: "PairCreated",
-      type: "event",
-    },
-    {
-      inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      name: "allPairs",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "allPairsLength",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "tokenA", type: "address" },
-        { internalType: "address", name: "tokenB", type: "address" },
-      ],
-      name: "createPair",
-      outputs: [{ internalType: "address", name: "pair", type: "address" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "feeToSetter",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "", type: "address" },
-        { internalType: "address", name: "", type: "address" },
-      ],
-      name: "getPair",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-  ],
-  // UniswapV2Pair (for both USDC-BFL and MDX-USDC)
+  
+  // Uniswap V2 Pair interface
   UniswapV2Pair: [
-    {
-      inputs: [
-        { internalType: "address", name: "_token0", type: "address" },
-        { internalType: "address", name: "_token1", type: "address" },
-      ],
-      stateMutability: "nonpayable",
-      type: "constructor",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "allowance", type: "uint256" },
-        { internalType: "uint256", name: "needed", type: "uint256" },
-      ],
-      name: "ERC20InsufficientAllowance",
-      type: "error",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "sender", type: "address" },
-        { internalType: "uint256", name: "balance", type: "uint256" },
-        { internalType: "uint256", name: "needed", type: "uint256" },
-      ],
-      name: "ERC20InsufficientBalance",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "approver", type: "address" }],
-      name: "ERC20InvalidApprover",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "receiver", type: "address" }],
-      name: "ERC20InvalidReceiver",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "sender", type: "address" }],
-      name: "ERC20InvalidSender",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "spender", type: "address" }],
-      name: "ERC20InvalidSpender",
-      type: "error",
-    },
-    {
-      inputs: [{ internalType: "address", name: "token", type: "address" }],
-      name: "SafeERC20FailedOperation",
-      type: "error",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "owner",
-          type: "address",
-        },
-        {
-          indexed: true,
-          internalType: "address",
-          name: "spender",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "value",
-          type: "uint256",
-        },
-      ],
-      name: "Approval",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "sender",
-          type: "address",
-        },
-        { indexed: true, internalType: "address", name: "to", type: "address" },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount0",
-          type: "uint256",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount1",
-          type: "uint256",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "liquidity",
-          type: "uint256",
-        },
-      ],
-      name: "Burn",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "sender",
-          type: "address",
-        },
-        { indexed: true, internalType: "address", name: "to", type: "address" },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount0",
-          type: "uint256",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount1",
-          type: "uint256",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "liquidity",
-          type: "uint256",
-        },
-      ],
-      name: "Mint",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "sender",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount0Out",
-          type: "uint256",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount1Out",
-          type: "uint256",
-        },
-        { indexed: true, internalType: "address", name: "to", type: "address" },
-      ],
-      name: "Swap",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "from",
-          type: "address",
-        },
-        { indexed: true, internalType: "address", name: "to", type: "address" },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "value",
-          type: "uint256",
-        },
-      ],
-      name: "Transfer",
-      type: "event",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "owner", type: "address" },
-        { internalType: "address", name: "spender", type: "address" },
-      ],
-      name: "allowance",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "spender", type: "address" },
-        { internalType: "uint256", name: "value", type: "uint256" },
-      ],
-      name: "approve",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "account", type: "address" }],
-      name: "balanceOf",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "to", type: "address" }],
-      name: "burn",
-      outputs: [
-        { internalType: "uint256", name: "amount0", type: "uint256" },
-        { internalType: "uint256", name: "amount1", type: "uint256" },
-      ],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "decimals",
-      outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "getReserves",
-      outputs: [
-        { internalType: "uint112", name: "", type: "uint112" },
-        { internalType: "uint112", name: "", type: "uint112" },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "to", type: "address" }],
-      name: "mint",
-      outputs: [
-        { internalType: "uint256", name: "liquidity", type: "uint256" },
-      ],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "name",
-      outputs: [{ internalType: "string", name: "", type: "string" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "uint256", name: "amount0Out", type: "uint256" },
-        { internalType: "uint256", name: "amount1Out", type: "uint256" },
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "bytes", name: "", type: "bytes" },
-      ],
-      name: "swap",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "symbol",
-      outputs: [{ internalType: "string", name: "", type: "string" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "token0",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "token1",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "totalSupply",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "value", type: "uint256" },
-      ],
-      name: "transfer",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "from", type: "address" },
-        { internalType: "address", name: "to", type: "address" },
-        { internalType: "uint256", name: "value", type: "uint256" },
-      ],
-      name: "transferFrom",
-      outputs: [{ internalType: "bool", name: "", type: "bool" }],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
+    "function token0() view returns (address)",
+    "function token1() view returns (address)",
+    "function getReserves() view returns (uint112, uint112)",
+    "function swap(uint256,uint256,address,bytes)",
+    "function mint(address) returns (uint256)",
+    "function burn(address) returns (uint256, uint256)"
   ],
-  // MasterChef (MDX Rewards)
-  MasterChef: [
-    {
-      type: "constructor",
-      inputs: [
-        { name: "_mdx", type: "address", internalType: "contract MDXToken" },
-      ],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "acceptTokenOwnership",
-      inputs: [],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "mdx",
-      inputs: [],
-      outputs: [
-        { name: "", type: "address", internalType: "contract MDXToken" },
-      ],
-      stateMutability: "view",
-    },
-    {
-      type: "function",
-      name: "mintRewards",
-      inputs: [
-        { name: "to", type: "address", internalType: "address" },
-        { name: "amount", type: "uint256", internalType: "uint256" },
-      ],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "owner",
-      inputs: [],
-      outputs: [{ name: "", type: "address", internalType: "address" }],
-      stateMutability: "view",
-    },
-    {
-      type: "function",
-      name: "renounceOwnership",
-      inputs: [],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "function",
-      name: "transferOwnership",
-      inputs: [{ name: "newOwner", type: "address", internalType: "address" }],
-      outputs: [],
-      stateMutability: "nonpayable",
-    },
-    {
-      type: "event",
-      name: "OwnershipTransferred",
-      inputs: [
-        {
-          name: "previousOwner",
-          type: "address",
-          indexed: true,
-          internalType: "address",
-        },
-        {
-          name: "newOwner",
-          type: "address",
-          indexed: true,
-          internalType: "address",
-        },
-      ],
-      anonymous: false,
-    },
-    {
-      type: "error",
-      name: "OwnableInvalidOwner",
-      inputs: [{ name: "owner", type: "address", internalType: "address" }],
-    },
-    {
-      type: "error",
-      name: "OwnableUnauthorizedAccount",
-      inputs: [{ name: "account", type: "address", internalType: "address" }],
-    },
+  
+  // BitcoinFlash token (for owner minting)
+  BitcoinFlash: [
+    "function mint(address,uint256)",
+    "function owner() view returns (address)"
   ],
-  // ActivityTracker
-  ActivityTracker: [
-    {
-      inputs: [
-        { internalType: "address", name: "_nft", type: "address" },
-        { internalType: "uint256", name: "_threshold", type: "uint256" },
-      ],
-      stateMutability: "nonpayable",
-      type: "constructor",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "tokenId",
-          type: "uint256",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount",
-          type: "uint256",
-        },
-      ],
-      name: "NFTMinted",
-      type: "event",
-    },
-    {
-      anonymous: false,
-      inputs: [
-        {
-          indexed: true,
-          internalType: "address",
-          name: "user",
-          type: "address",
-        },
-        {
-          indexed: false,
-          internalType: "uint256",
-          name: "amount",
-          type: "uint256",
-        },
-      ],
-      name: "VolumeRecorded",
-      type: "event",
-    },
-    {
-      inputs: [],
-      name: "admin",
-      outputs: [{ internalType: "address", name: "", type: "address" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "nft",
-      outputs: [
-        { internalType: "contract IMyERC1155", name: "", type: "address" },
-      ],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [
-        { internalType: "address", name: "user", type: "address" },
-        { internalType: "uint256", name: "amount", type: "uint256" },
-      ],
-      name: "recordVolume",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "a", type: "address" }],
-      name: "setAdmin",
-      outputs: [],
-      stateMutability: "nonpayable",
-      type: "function",
-    },
-    {
-      inputs: [],
-      name: "threshold",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-    {
-      inputs: [{ internalType: "address", name: "", type: "address" }],
-      name: "volume",
-      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-      stateMutability: "view",
-      type: "function",
-    },
-  ],
+  
+  // Factory (for pair lookups)
+  UniswapV2Factory: [
+    "function getPair(address,address) view returns (address)",
+    "function createPair(address,address) returns (address)"
+  ]
 };
 
-
-  // DOM helper
+// Helper function: Get token address from symbol
+function getTokenAddress(symbol) {
+  const map = { 
+    USDC: ADDRESSES.USDC, 
+    BFL: ADDRESSES.BFL, 
+    MDX: ADDRESSES.MDX 
+  };
+  return map[symbol] || "";
+}
+ // Utility functions
 const $ = (id) => document.getElementById(id);
 
-// Logging
+// Logging with colors
 function log(message, type = "info") {
   const logEl = $("log");
+  if (!logEl) return;
+  
   const time = new Date().toLocaleTimeString();
   const safeMsg = String(message);
   const colorMap = {
@@ -1362,54 +417,25 @@ function log(message, type = "info") {
     warning: "var(--log-warning)",
     error: "var(--log-error)",
     debug: "var(--log-debug)",
-    trace: "var(--log-trace)",
+    trace: "var(--log-trace)"
   };
   const color = colorMap[type] || colorMap.info;
   const entry = `<div class="log-entry"><span class="log-time">[${time}]</span><span style="color:${color}">${escapeHtml(safeMsg)}</span></div>`;
-  if (logEl) logEl.innerHTML = entry + logEl.innerHTML;
+  logEl.innerHTML = entry + logEl.innerHTML;
   console.log(`[${time}] ${safeMsg}`);
 }
+
 function escapeHtml(s) {
-  return s.replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
-  );
+  return s.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[c]);
 }
 
-// Providers
-const readProvider = new ethers.JsonRpcProvider(ALCHEMY_RPC, {
-  name: "monad",
-  chainId: CHAIN_ID,
-});
-if ($("rpcUrl")) $("rpcUrl").textContent = ALCHEMY_RPC;
-let walletProvider = null;
-let signer = null;
-let user = null;
-
-// Pair cache
-let pairInfo = {
-  token0: null,
-  token1: null,
-  reserve0: 0n,
-  reserve1: 0n,
-  dec0: 18,
-  dec1: 18,
-};
-
-// Utility: get decimals for a token
-async function ensureDecimals(address) {
-  try {
-    const t = new ethers.Contract(address, ABIS.ERC20, readProvider);
-    return Number(await t.decimals());
-  } catch {
-    return 18;
-  }
-}
-
-// Utility: format big numbers
+// Format big numbers with decimals
 function formatAmount(bn, decimals) {
   bn = BigInt(bn || 0n);
   const factor = 10n ** BigInt(decimals);
@@ -1420,63 +446,700 @@ function formatAmount(bn, decimals) {
   return `${whole.toString()}.${s}`;
 }
 
-// Balances
-async function loadBalances() {
-  if (!user) {
-    log("No wallet connected - balances not loaded", "warning");
-    return;
-  }
+// Parse amount to BigInt with decimals
+function parseAmount(value, decimals) {
+  const str = String(value);
+  const [whole = "0", frac = ""] = str.split(".");
+  const fracPadded = frac.padEnd(decimals, "0").slice(0, decimals);
+  return BigInt(whole + fracPadded);
+}
+
+// Get token decimals
+async function getDecimals(address, provider) {
   try {
-    const usdc = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
-    const bfl = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
-    const mdx = new ethers.Contract(ADDRESSES.MDX, ABIS.ERC20, readProvider);
-    const [b0, b1, b2] = await Promise.all([
-      usdc.balanceOf(user),
-      bfl.balanceOf(user),
-      mdx.balanceOf(user),
-    ]);
-    const d0 = await ensureDecimals(ADDRESSES.USDC);
-    const d1 = await ensureDecimals(ADDRESSES.BFL);
-    const d2 = await ensureDecimals(ADDRESSES.MDX);
-    if ($("balanceUSDC"))
-      $("balanceUSDC").textContent = formatAmount(BigInt(b0.toString()), d0);
-    if ($("balanceBFL"))
-      $("balanceBFL").textContent = formatAmount(BigInt(b1.toString()), d1);
-    if ($("balanceMDX"))
-      $("balanceMDX").textContent = formatAmount(BigInt(b2.toString()), d2);
-    if ($("fromBalance"))
-      $("fromBalance").textContent = $("balanceUSDC")
-        ? $("balanceUSDC").textContent
-        : "-";
-    if ($("toBalance"))
-      $("toBalance").textContent = $("balanceBFL")
-        ? $("balanceBFL").textContent
-        : "-";
-    log("balances refreshed", "info");
-  } catch (e) {
-    log(
-      "loadBalances error: " + (e && e.message ? e.message : String(e)),
-      "error",
-    );
+    const contract = new ethers.Contract(address, ABIS.ERC20, provider);
+    return Number(await contract.decimals());
+  } catch {
+    return 18;
   }
 }
 
-// Wire up events
-if ($("fromToken")) $("fromToken").addEventListener("change", updateTokenLogos);
-if ($("toToken")) $("toToken").addEventListener("change", updateTokenLogos);
-if ($("swapFlip"))
-  $("swapFlip").addEventListener("click", () => {
-    const a = $("fromToken").value;
-    $("fromToken").value = $("toToken").value;
-    $("toToken").value = a;
-    updateTokenLogos();
-  });
-if ($("connectBtn")) $("connectBtn").addEventListener("click", connectWallet);
+// Update token logos in UI
+function updateTokenLogos() {
+  const fromAddr = getTokenAddress($("fromToken")?.value);
+  const toAddr = getTokenAddress($("toToken")?.value);
+  if ($("fromLogo")) $("fromLogo").src = LOGOS[fromAddr] || "";
+  if ($("toLogo")) $("toLogo").src = LOGOS[toAddr] || "";
+} 
+ // Wallet connection logic
+let walletProvider = null;
+let signer = null;
+let userAddress = null;
+let web3auth = null;
 
-// Initial logos and UI log
-updateTokenLogos();
-log(
-  "UI initialized. Reads via Alchemy. Polling every " + (POLL_MS / 1000) + "s.",
-  "debug"
-);
-})();
+// Read-only provider (Alchemy)
+const readProvider = new ethers.JsonRpcProvider(CONFIG.ALCHEMY_RPC, {
+  name: "monad",
+  chainId: CONFIG.CHAIN_ID
+});
+
+// Initialize Web3Auth with your credentials
+async function initWeb3Auth() {
+  try {
+    // Check if Web3Auth library is loaded
+    if (!window.Web3Auth) {
+      throw new Error("Web3Auth library not loaded. Check CDN link.");
+    }
+    
+    const { Web3Auth } = window;
+    const { CHAIN_NAMESPACES } = window;
+    
+    web3auth = new Web3Auth({
+      clientId: CONFIG.WEB3AUTH_CLIENT_ID, // Your client ID
+      web3AuthNetwork: "sapphire_mainnet", // Production network
+      chainConfig: {
+        chainNamespace: CHAIN_NAMESPACES.EIP155,
+        chainId: "0x8F", // Monad chain ID (143 in hex)
+        rpcTarget: CONFIG.ALCHEMY_RPC,
+        displayName: "Monad",
+        blockExplorer: "https://explorer.monad.xyz",
+        ticker: "MONAD",
+        tickerName: "Monad"
+      },
+      uiConfig: {
+        appName: "Monad DEX",
+        theme: "dark",
+        loginMethodsOrder: ["google", "facebook", "twitter"],
+        defaultLanguage: "en"
+      }
+    });
+    
+    await web3auth.initModal();
+    log("Web3Auth initialized successfully", "debug");
+    
+  } catch (error) {
+    log("Web3Auth init failed: " + error.message, "error");
+    console.error("Web3Auth error details:", error);
+    throw error;
+  }
+}
+
+// Connect wallet (tries MetaMask first, then Web3Auth)
+async function connectWallet() {
+  try {
+    log("Connecting wallet...", "info");
+    
+    // Strategy 1: Try MetaMask first if available
+    if (window.ethereum && !window.ethereum.isWeb3Auth) {
+      log("MetaMask detected, attempting connection...", "debug");
+      
+      try {
+        // Request account access
+        const accounts = await window.ethereum.request({ 
+          method: "eth_requestAccounts" 
+        });
+        
+        if (!accounts || accounts.length === 0) {
+          throw new Error("No accounts returned from MetaMask");
+        }
+        
+        // Check/switch to Monad network
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        
+        if (chainId !== "0x8F" && chainId !== "0x8f") {
+          log("Wrong network. Switching to Monad...", "warning");
+          
+          try {
+            // Try switching to Monad
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: "0x8F" }]
+            });
+          } catch (switchError) {
+            // Network not added, add it
+            if (switchError.code === 4902) {
+              log("Adding Monad network to MetaMask...", "info");
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: "0x8F",
+                  chainName: "Monad Mainnet",
+                  rpcUrls: [CONFIG.ALCHEMY_RPC],
+                  nativeCurrency: {
+                    name: "Monad",
+                    symbol: "MONAD",
+                    decimals: 18
+                  },
+                  blockExplorerUrls: ["https://explorer.monad.xyz"]
+                }]
+              });
+            } else {
+              throw switchError;
+            }
+          }
+        }
+        
+        // Create ethers provider from MetaMask
+        walletProvider = new ethers.BrowserProvider(window.ethereum);
+        signer = await walletProvider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+        updateWalletUI();
+        await loadBalances();
+        return;
+        
+      } catch (mmError) {
+        log("MetaMask connection failed: " + mmError.message, "warning");
+        log("Falling back to Web3Auth...", "info");
+      }
+    }
+    
+    // Strategy 2: Use Web3Auth as fallback or primary
+    log("Initializing Web3Auth login...", "info");
+    
+    // Initialize Web3Auth if not already done
+    if (!web3auth) {
+      await initWeb3Auth();
+    }
+    
+    // Check if already connected
+    if (web3auth.connected) {
+      log("Web3Auth already connected", "debug");
+    } else {
+      // Connect to Web3Auth (opens modal)
+      await web3auth.connect();
+    }
+    
+    // Get the provider from Web3Auth
+    const web3authProvider = web3auth.provider;
+    
+    if (!web3authProvider) {
+      throw new Error("Web3Auth provider is null. Connection may have been cancelled.");
+    }
+    
+    // Wrap Web3Auth provider with ethers
+    walletProvider = new ethers.BrowserProvider(web3authProvider);
+    signer = await walletProvider.getSigner();
+    userAddress = await signer.getAddress();
+    
+    log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
+    updateWalletUI();
+    await loadBalances();
+    
+  } catch (error) {
+    log("Connection error: " + error.message, "error");
+    console.error("Full connection error:", error);
+    
+    // Reset state on failure
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+    updateWalletUI();
+  }
+}
+
+// Disconnect wallet
+async function disconnectWallet() {
+  try {
+    // Disconnect Web3Auth if connected
+    if (web3auth && web3auth.connected) {
+      await web3auth.logout();
+      log("Web3Auth logged out", "debug");
+    }
+    
+    // Clear state
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+    
+    // Update UI
+    updateWalletUI();
+    
+    // Clear balance displays
+    if ($("balanceUSDC")) $("balanceUSDC").textContent = "-";
+    if ($("balanceBFL")) $("balanceBFL").textContent = "-";
+    if ($("fromBalance")) $("fromBalance").textContent = "-";
+    if ($("toBalance")) $("toBalance").textContent = "-";
+    
+    log("Wallet disconnected", "info");
+    
+  } catch (error) {
+    log("Disconnect error: " + error.message, "error");
+    console.error(error);
+  }
+}
+
+// Update UI to reflect wallet connection status
+function updateWalletUI() {
+  const display = $("walletDisplay");
+  const btn = $("connectBtn");
+  
+  if (!display || !btn) return;
+  
+  if (userAddress) {
+    // Connected state
+    display.textContent = userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
+    btn.textContent = "Disconnect";
+    btn.onclick = disconnectWallet;
+    btn.classList.remove("btn-primary");
+    btn.classList.add("btn-ghost");
+  } else {
+    // Disconnected state
+    display.textContent = "Not connected";
+    btn.textContent = "Connect Wallet";
+    btn.onclick = connectWallet;
+    btn.classList.remove("btn-ghost");
+    btn.classList.add("btn-primary");
+  }
+}
+
+// Load user token balances
+async function loadBalances() {
+  if (!userAddress) {
+    log("No wallet connected - skipping balance load", "warning");
+    return;
+  }
+  
+  try {
+    log("Loading balances for " + userAddress.slice(0, 8) + "...", "debug");
+    
+    // Create contract instances
+    const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
+    const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
+    
+    // Fetch balances in parallel
+    const [usdcBal, bflBal] = await Promise.all([
+      usdcContract.balanceOf(userAddress),
+      bflContract.balanceOf(userAddress)
+    ]);
+    
+    // Get decimals
+    const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
+    const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
+    
+    // Format and display
+    const formattedUSDC = formatAmount(usdcBal, usdcDec);
+    const formattedBFL = formatAmount(bflBal, bflDec);
+    
+    if ($("balanceUSDC")) $("balanceUSDC").textContent = formattedUSDC;
+    if ($("balanceBFL")) $("balanceBFL").textContent = formattedBFL;
+    if ($("fromBalance")) $("fromBalance").textContent = formattedUSDC;
+    if ($("toBalance")) $("toBalance").textContent = formattedBFL;
+    
+    log("✓ Balances loaded: " + formattedUSDC + " USDC, " + formattedBFL + " BFL", "info");
+    
+  } catch (error) {
+    log("Balance load failed: " + error.message, "error");
+    console.error("Balance error:", error);
+  }
+}
+       // Pair reserves and pricing
+let pairCache = {
+  token0: null,
+  token1: null,
+  reserve0: 0n,
+  reserve1: 0n,
+  dec0: 18,
+  dec1: 18
+};
+
+// Load pair reserves
+async function loadPairReserves() {
+  try {
+    const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, readProvider);
+    
+    const [token0, token1, reserves] = await Promise.all([
+      pair.token0(),
+      pair.token1(),
+      pair.getReserves()
+    ]);
+    
+    const dec0 = await getDecimals(token0, readProvider);
+    const dec1 = await getDecimals(token1, readProvider);
+    
+    pairCache = {
+      token0: token0.toLowerCase(),
+      token1: token1.toLowerCase(),
+      reserve0: BigInt(reserves[0].toString()),
+      reserve1: BigInt(reserves[1].toString()),
+      dec0,
+      dec1
+    };
+    
+    updatePairUI();
+    updatePrice();
+    log("Pair reserves loaded", "debug");
+    
+  } catch (error) {
+    log("Pair load error: " + error.message, "error");
+  }
+}
+
+// Update pair info in UI
+function updatePairUI() {
+  if ($("pairToken0")) $("pairToken0").textContent = pairCache.token0 || "-";
+  if ($("pairToken1")) $("pairToken1").textContent = pairCache.token1 || "-";
+  if ($("pairReserve0")) $("pairReserve0").textContent = formatAmount(pairCache.reserve0, pairCache.dec0);
+  if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(pairCache.reserve1, pairCache.dec1);
+}
+
+// Calculate and display price
+function updatePrice() {
+  if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) {
+    if ($("priceDisplay")) $("priceDisplay").textContent = "price: n/a";
+    return;
+  }
+  
+  // Determine which token is USDC
+  const usdcAddr = ADDRESSES.USDC.toLowerCase();
+  let priceUSDC;
+  
+  if (pairCache.token0 === usdcAddr) {
+    // token0 is USDC, price = reserve0 / reserve1
+    const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
+    const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
+    priceUSDC = r0 / r1;
+  } else {
+    // token1 is USDC, price = reserve1 / reserve0
+    const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
+    const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
+    priceUSDC = r1 / r0;
+  }
+  
+  if ($("priceDisplay")) {
+    $("priceDisplay").textContent = `price: $${priceUSDC.toFixed(4)}`;
+  }
+}
+
+// Calculate output amount given input
+function calculateOutput(amountIn, fromToken, toToken) {
+  if (!amountIn || amountIn <= 0) return 0n;
+  
+  const fromAddr = getTokenAddress(fromToken).toLowerCase();
+  const toAddr = getTokenAddress(toToken).toLowerCase();
+  
+  if (fromAddr === toAddr) return 0n;
+  if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) return 0n;
+  
+  let reserveIn, reserveOut, decIn, decOut;
+  
+  if (fromAddr === pairCache.token0) {
+    reserveIn = pairCache.reserve0;
+    reserveOut = pairCache.reserve1;
+    decIn = pairCache.dec0;
+    decOut = pairCache.dec1;
+  } else if (fromAddr === pairCache.token1) {
+    reserveIn = pairCache.reserve1;
+    reserveOut = pairCache.reserve0;
+    decIn = pairCache.dec1;
+    decOut = pairCache.dec0;
+  } else {
+    return 0n;
+  }
+  
+  const amountInBig = parseAmount(amountIn, decIn);
+  const amountInWithFee = amountInBig * 997n;
+  const numerator = amountInWithFee * reserveOut;
+  const denominator = (reserveIn * 1000n) + amountInWithFee;
+  
+  return numerator / denominator;
+} 
+     // Swap functionality
+async function handleApprove() {
+  if (!signer || !userAddress) {
+    log("Please connect wallet first", "warning");
+    return;
+  }
+  
+  const fromToken = $("fromToken").value;
+  const amountIn = $("amountIn").value;
+  
+  if (!amountIn || parseFloat(amountIn) <= 0) {
+    log("Enter amount to approve", "warning");
+    return;
+  }
+  
+  try {
+    log("Approving " + fromToken + "...", "info");
+    const tokenAddr = getTokenAddress(fromToken);
+    const decimals = await getDecimals(tokenAddr, readProvider);
+    const amount = parseAmount(amountIn, decimals);
+    
+    const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
+    const tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
+    
+    log("Approval pending: " + tx.hash.slice(0, 10) + "...", "debug");
+    await tx.wait();
+    log("Approved " + amountIn + " " + fromToken, "info");
+    
+  } catch (error) {
+    log("Approval failed: " + error.message, "error");
+  }
+}
+
+async function handleSwap() {
+  if (!signer || !userAddress) {
+    log("Please connect wallet first", "warning");
+    return;
+  }
+  
+  const fromToken = $("fromToken").value;
+  const toToken = $("toToken").value;
+  const amountIn = $("amountIn").value;
+  const slippage = parseFloat($("slippage").value) || 0.5;
+  
+  if (!amountIn || parseFloat(amountIn) <= 0) {
+    log("Enter swap amount", "warning");
+    return;
+  }
+  
+  if (fromToken === toToken) {
+    log("Select different tokens", "warning");
+    return;
+  }
+  
+  try {
+    log("Initiating swap: " + amountIn + " " + fromToken + " → " + toToken, "info");
+    
+    const fromAddr = getTokenAddress(fromToken);
+    const toAddr = getTokenAddress(toToken);
+    const fromDec = await getDecimals(fromAddr, readProvider);
+    const toDec = await getDecimals(toAddr, readProvider);
+    
+    const amountInBig = parseAmount(amountIn, fromDec);
+    const expectedOut = calculateOutput(amountIn, fromToken, toToken);
+    const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
+    
+    // Transfer tokens to pair
+    log("Transferring " + fromToken + " to pair...", "debug");
+    const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
+    const transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+    await transferTx.wait();
+    
+    // Execute swap
+    log("Executing swap...", "debug");
+    const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+    
+    let amount0Out = 0n;
+    let amount1Out = 0n;
+    
+    if (toAddr.toLowerCase() === pairCache.token0) {
+      amount0Out = minOut;
+    } else {
+      amount1Out = minOut;
+    }
+    
+    const swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
+    log("Swap pending: " + swapTx.hash.slice(0, 10) + "...", "debug");
+    await swapTx.wait();
+    
+    log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+    await loadBalances();
+    await loadPairReserves();
+    
+  } catch (error) {
+    log("Swap failed: " + error.message, "error");
+    console.error(error);
+  }
+}
+
+// Update output estimate on input change
+function updateOutputEstimate() {
+  const fromToken = $("fromToken")?.value;
+  const toToken = $("toToken")?.value;
+  const amountIn = $("amountIn")?.value;
+  
+  if (!amountIn || parseFloat(amountIn) <= 0) {
+    if ($("amountOut")) $("amountOut").value = "";
+    return;
+  }
+  
+  try {
+    const output = calculateOutput(amountIn, fromToken, toToken);
+    const toAddr = getTokenAddress(toToken);
+    const toDec = pairCache.token0 === toAddr.toLowerCase() ? pairCache.dec0 : pairCache.dec1;
+    
+    if ($("amountOut")) {
+      $("amountOut").value = formatAmount(output, toDec);
+    }
+  } catch (error) {
+    console.error("Output estimate error:", error);
+  }
+} 
+     // Liquidity and minting functions
+
+async function handleMintBFL() {
+  if (!signer || !userAddress) {
+    log("Please connect wallet first", "warning");
+    return;
+  }
+  
+  const amount = $("mintBFLAmount")?.value;
+  if (!amount || parseFloat(amount) <= 0) {
+    log("Enter amount to mint", "warning");
+    return;
+  }
+  
+  try {
+    log("Minting " + amount + " BFL...", "info");
+    
+    const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.BitcoinFlash, signer);
+    const decimals = await getDecimals(ADDRESSES.BFL, readProvider);
+    const amountBig = parseAmount(amount, decimals);
+    
+    const tx = await bflContract.mint(userAddress, amountBig);
+    log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
+    await tx.wait();
+    
+    log("Minted " + amount + " BFL", "info");
+    await loadBalances();
+    
+  } catch (error) {
+    log("Mint failed: " + error.message, "error");
+    if (error.message.includes("OwnableUnauthorizedAccount")) {
+      log("Only contract owner can mint BFL", "warning");
+    }
+  }
+}
+
+async function handleAddLiquidity() {
+  if (!signer || !userAddress) {
+    log("Please connect wallet first", "warning");
+    return;
+  }
+  
+  const usdcAmount = $("liquidityUSDC")?.value;
+  const bflAmount = $("liquidityBFL")?.value;
+  
+  if (!usdcAmount || !bflAmount || parseFloat(usdcAmount) <= 0 || parseFloat(bflAmount) <= 0) {
+    log("Enter both USDC and BFL amounts", "warning");
+    return;
+  }
+  
+  try {
+    log("Adding liquidity: " + usdcAmount + " USDC + " + bflAmount + " BFL", "info");
+    
+    const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
+    const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
+    
+    const usdcBig = parseAmount(usdcAmount, usdcDec);
+    const bflBig = parseAmount(bflAmount, bflDec);
+    
+    // Transfer USDC to pair
+    log("Transferring USDC to pair...", "debug");
+    const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
+    const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
+    await usdcTx.wait();
+    
+    // Transfer BFL to pair
+    log("Transferring BFL to pair...", "debug");
+    const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
+    const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
+    await bflTx.wait();
+    
+    // Mint LP tokens
+    log("Minting LP tokens...", "debug");
+    const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+    const mintTx = await pair.mint(userAddress);
+    log("LP mint pending: " + mintTx.hash.slice(0, 10) + "...", "debug");
+    const receipt = await mintTx.wait();
+    
+    log("Liquidity added successfully!", "info");
+    await loadBalances();
+    await loadPairReserves();
+    
+    // Clear inputs
+    if ($("liquidityUSDC")) $("liquidityUSDC").value = "";
+    if ($("liquidityBFL")) $("liquidityBFL").value = "";
+    
+  } catch (error) {
+    log("Add liquidity failed: " + error.message, "error");
+    console.error(error);
+  }
+} 
+     // Main application initialization and event handlers
+
+// Initialize app when DOM is ready
+document.addEventListener("DOMContentLoaded", async () => {
+  log("Monad DEX initializing...", "info");
+  
+  // Set RPC display
+  if ($("rpcUrl")) $("rpcUrl").textContent = CONFIG.ALCHEMY_RPC;
+  
+  // Wire up button events
+  if ($("connectBtn")) $("connectBtn").addEventListener("click", connectWallet);
+  if ($("approveBtn")) $("approveBtn").addEventListener("click", handleApprove);
+  if ($("swapBtn")) $("swapBtn").addEventListener("click", handleSwap);
+  if ($("mintBFLBtn")) $("mintBFLBtn").addEventListener("click", handleMintBFL);
+  if ($("addLiquidityBtn")) $("addLiquidityBtn").addEventListener("click", handleAddLiquidity);
+  if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", loadBalances);
+  if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
+  if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => {
+    await Promise.all([loadBalances(), loadPairReserves()]);
+  });
+  
+  // Token selector changes
+  if ($("fromToken")) {
+    $("fromToken").addEventListener("change", () => {
+      updateTokenLogos();
+      updateOutputEstimate();
+    });
+  }
+  
+  if ($("toToken")) {
+    $("toToken").addEventListener("change", () => {
+      updateTokenLogos();
+      updateOutputEstimate();
+    });
+  }
+  
+  // Amount input changes
+  if ($("amountIn")) {
+    $("amountIn").addEventListener("input", updateOutputEstimate);
+  }
+  
+  // Swap flip button
+  if ($("swapFlip")) {
+    $("swapFlip").addEventListener("click", () => {
+      const fromVal = $("fromToken").value;
+      const toVal = $("toToken").value;
+      $("fromToken").value = toVal;
+      $("toToken").value = fromVal;
+      updateTokenLogos();
+      updateOutputEstimate();
+    });
+  }
+  
+  // Initial setup
+  updateTokenLogos();
+  
+  // Load initial pair data
+  await loadPairReserves();
+  
+  // Start polling for updates
+  setInterval(async () => {
+    await loadPairReserves();
+    if (userAddress) {
+      await loadBalances();
+    }
+  }, CONFIG.POLL_MS);
+  
+  log("App ready. Connect wallet to start trading.", "info");
+  
+  // Auto-connect if wallet was previously connected
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ 
+        method: "eth_accounts" 
+      });
+      if (accounts && accounts.length > 0) {
+        log("Auto-connecting to wallet...", "debug");
+        await connectWallet();
+      }
+    } catch (error) {
+      // Ignore auto-connect errors
+    }
+  }
+}); 
+     
