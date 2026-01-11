@@ -731,9 +731,7 @@
 
     /* ==========================
        Pair reserves & price + chart
-       (rest of the original file kept unchanged)
        ========================== */
-
     let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
 
     async function loadPairReserves() {
@@ -762,7 +760,7 @@
       if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(pairCache.reserve1, pairCache.dec1);
     }
 
-    // Chart helpers (unchanged)
+    // Chart helpers
     let priceChart = null;
     const priceHistory = [];
     const MAX_HISTORY = 240;
@@ -854,10 +852,71 @@
     }
 
     /* ==========================
-       Balance loading, swaps, approvals, etc.
-       (kept as originally provided)
+       calculateOutput & updateOutputEstimate
        ========================== */
+    function calculateOutput(amountIn, fromToken, toToken) {
+      if (!amountIn || Number(amountIn) <= 0) return 0n;
+      const fromAddr = getTokenAddress(fromToken).toLowerCase();
+      const toAddr = getTokenAddress(toToken).toLowerCase();
+      if (fromAddr === toAddr) return 0n;
+      if (!pairCache.token0 || pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) return 0n;
 
+      let reserveIn, reserveOut, decIn, decOut;
+      if (fromAddr === pairCache.token0) {
+        reserveIn = pairCache.reserve0;
+        reserveOut = pairCache.reserve1;
+        decIn = pairCache.dec0;
+        decOut = pairCache.dec1;
+      } else if (fromAddr === pairCache.token1) {
+        reserveIn = pairCache.reserve1;
+        reserveOut = pairCache.reserve0;
+        decIn = pairCache.dec1;
+        decOut = pairCache.dec0;
+      } else return 0n;
+
+      const amountInBig = parseAmount(amountIn, decIn);
+      const amountInWithFee = amountInBig * 997n;
+      const numerator = amountInWithFee * reserveOut;
+      const denominator = (reserveIn * 1000n) + amountInWithFee;
+      return numerator / denominator;
+    }
+
+    function updateOutputEstimate() {
+      try {
+        const fromToken = $("fromToken")?.value;
+        const toToken = $("toToken")?.value;
+        const amountIn = $("amountIn")?.value;
+        if (!amountIn || Number(amountIn) <= 0) {
+          if ($("amountOut")) $("amountOut").value = "";
+          return;
+        }
+        const output = calculateOutput(amountIn, fromToken, toToken);
+        if (!output || output === 0n) {
+          if ($("amountOut")) $("amountOut").value = "";
+          return;
+        }
+        const toAddr = getTokenAddress(toToken).toLowerCase();
+        const toDec = (pairCache.token0 === toAddr ? pairCache.dec0 : (pairCache.token1 === toAddr ? pairCache.dec1 : 18));
+        if ($("amountOut")) $("amountOut").value = formatAmount(output, toDec);
+      } catch (err) {
+        console.error("updateOutputEstimate error:", err);
+      }
+    }
+
+    /* ==========================
+       Stubs for mint/add liquidity (avoid ReferenceError)
+       ========================== */
+    async function handleMintBFL() {
+      log("Mint BFL action is not enabled in this build.", "warning");
+    }
+
+    async function handleAddLiquidity() {
+      log("Add liquidity action is not enabled in this build.", "warning");
+    }
+
+    /* ==========================
+       Balance loading, swaps, approvals, etc.
+       ========================== */
     async function loadBalances() {
       if (!userAddress) return;
       try {
@@ -1100,7 +1159,7 @@
         });
       }
 
-      // Add liquidity
+      // Add liquidity (safe wrapper)
       if ($("addLiquidityBtn")) {
         $("addLiquidityBtn").addEventListener("click", async (e) => {
           if (typeof handleAddLiquidity === "function") await handleAddLiquidity(e);
@@ -1113,16 +1172,17 @@
       if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
       if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => { await Promise.all([loadBalances(), loadPairReserves()]); });
 
-      // Token selection / input events
-      if ($("fromToken")) $("fromToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
-      if ($("toToken")) $("toToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
-      if ($("amountIn")) $("amountIn").addEventListener("input", updateOutputEstimate);
+      // Token selection / input events (defensive)
+      if ($("fromToken")) $("fromToken").addEventListener("change", () => { if (typeof updateTokenLogos === "function") updateTokenLogos(); if (typeof updateOutputEstimate === "function") updateOutputEstimate(); });
+      if ($("toToken")) $("toToken").addEventListener("change", () => { if (typeof updateTokenLogos === "function") updateTokenLogos(); if (typeof updateOutputEstimate === "function") updateOutputEstimate(); });
+      if ($("amountIn")) $("amountIn").addEventListener("input", () => { if (typeof updateOutputEstimate === "function") updateOutputEstimate(); });
 
       // Swap flip
       if ($("swapFlip")) $("swapFlip").addEventListener("click", () => {
         const fromVal = $("fromToken").value; const toVal = $("toToken").value;
         $("fromToken").value = toVal; $("toToken").value = fromVal;
-        updateTokenLogos(); updateOutputEstimate();
+        if (typeof updateTokenLogos === "function") updateTokenLogos();
+        if (typeof updateOutputEstimate === "function") updateOutputEstimate();
       });
 
       if ($("timeframe")) $("timeframe").addEventListener("change", (e) => {
@@ -1136,7 +1196,7 @@
       updateTokenLogos();
       initChart();
 
-      // Set initial wallet UI (connect button will be wired here)
+      // Set initial wallet UI
       updateWalletUI();
 
       await loadPairReserves();
