@@ -612,6 +612,30 @@
       }
     }
 
+    // Prefer injected signer (MetaMask) when available for on-chain writes.
+    async function preferInjectedSignerIfAvailable() {
+      try {
+        if (window.ethereum) {
+          // Always try to use injected provider for transactions if present.
+          walletProvider = new ethers.BrowserProvider(window.ethereum);
+          signer = await walletProvider.getSigner();
+          try { userAddress = await signer.getAddress(); } catch (e) { /* ignore */ }
+          log("Using injected provider for transactions", "debug");
+          attachEthereumListeners();
+          updateWalletUI();
+        }
+      } catch (e) {
+        console.warn("preferInjectedSignerIfAvailable failed:", e);
+      }
+    }
+
+    function isInvalidRpcUrlError(err) {
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "");
+      if (msg.includes("Invalid RPC URL") || msg.includes("twnodes")) return true;
+      if (err?.data && JSON.stringify(err.data).includes("Invalid RPC URL")) return true;
+      return false;
+    }
+
     // connectWallet with guards and Web3Auth provider handling
     async function connectWallet() {
       if (isConnecting) { log("Connect already in progress...", "debug"); return; }
@@ -1006,6 +1030,10 @@
 
       try {
         log("Approving " + fromToken + "...", "info");
+
+        // Ensure we use injected signer for writes if available
+        await preferInjectedSignerIfAvailable();
+
         const tokenAddr = getTokenAddress(fromToken);
         const decimals = await getDecimals(tokenAddr, readProvider);
         const amount = parseAmount(amountIn, decimals);
@@ -1015,6 +1043,11 @@
         try {
           tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
         } catch (err) {
+          if (isInvalidRpcUrlError(err)) {
+            log("Approval failed: Provider RPC appears invalid (invalid RPC URL). Try switching MetaMask network or reconnecting your wallet.", "error");
+            console.error("Invalid RPC URL error:", err);
+            throw err;
+          }
           if (isPendingRequest(err)) {
             log(getWalletErrorMessage(err), "warning");
             throw err;
@@ -1065,12 +1098,21 @@
         const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
 
         log("Transferring " + fromToken + " to pair...", "debug");
+
+        // Ensure we use injected signer for writes if available
+        await preferInjectedSignerIfAvailable();
+
         const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
 
         let transferTx;
         try {
           transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
         } catch (err) {
+          if (isInvalidRpcUrlError(err)) {
+            log("Transfer failed: Provider RPC appears invalid (invalid RPC URL). Try switching MetaMask network or reconnecting your wallet.", "error");
+            console.error("Invalid RPC URL error:", err);
+            throw err;
+          }
           log(getWalletErrorMessage(err), "warning");
           throw err;
         }
