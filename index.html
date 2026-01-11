@@ -68,7 +68,7 @@
       border: 0;
       cursor: pointer;
       font-weight: 700;
-      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s, background 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       will-change: transform, box-shadow;
     }
 
@@ -85,6 +85,32 @@
       border: 1px solid rgba(255,255,255,0.06);
       color: var(--text);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+    }
+
+    .btn-green {
+      background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%) !important;
+      color: #002211 !important;
+      border: 1px solid rgba(0, 255, 136, 0.3) !important;
+      box-shadow: 0 6px 30px rgba(0, 255, 136, 0.25), 0 0 18px rgba(0, 255, 136, 0.15) !important;
+      border-radius: 12px !important;
+    }
+
+    .btn-green:hover {
+      background: linear-gradient(135deg, #00ff99 0%, #00dd77 100%) !important;
+      box-shadow: 0 8px 35px rgba(0, 255, 136, 0.35) !important;
+    }
+
+    .btn-red {
+      background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%) !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 68, 68, 0.3) !important;
+      box-shadow: 0 6px 30px rgba(255, 68, 68, 0.25), 0 0 18px rgba(255, 68, 68, 0.15) !important;
+      border-radius: 12px !important;
+    }
+
+    .btn-red:hover {
+      background: linear-gradient(135deg, #ff5555 0%, #dd1111 100%) !important;
+      box-shadow: 0 8px 35px rgba(255, 68, 68, 0.35) !important;
     }
 
     .btn:hover { transform: translateY(-2px); }
@@ -149,7 +175,31 @@
 
     .chart-placeholder { height: 260px; border-radius: 10px; background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.42)); border: 1px solid rgba(255,255,255,0.02); margin-bottom: 12px; }
 
-    @media (max-width: 980px) { .main-grid { grid-template-columns: 1fr; } header { flex-direction: column; gap: 10px; align-items: flex-start; } }
+    @media (max-width: 980px) { 
+      .main-grid { grid-template-columns: 1fr; } 
+      header { flex-direction: column; gap: 10px; align-items: stretch; }
+      header > div { width: 100%; }
+      header > div:first-child { flex-direction: column; align-items: flex-start; }
+      #priceDisplay { margin-left: 0 !important; margin-top: 8px; }
+      header > div:last-child { 
+        flex-direction: column; 
+        align-items: stretch;
+        gap: 10px;
+      }
+      header select, header button { width: 100%; }
+      .token-input { flex-wrap: wrap; }
+      .token-input > div { width: 100%; margin-left: 0 !important; }
+      h1 { font-size: 16px; }
+      .card { padding: 12px; }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+      .btn { padding: 8px 12px; font-size: 14px; }
+      input, select { font-size: 14px; }
+      pre#log { max-height: 180px; font-size: 11px; }
+      .chart-placeholder { height: 200px; }
+    }
 
     .chrome-rim { border: 1px solid rgba(255,255,255,0.04); background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.002)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); border-radius: 10px; }
 
@@ -200,7 +250,7 @@
 
         <div style="display:flex;flex-direction:column;align-items:flex-end;">
           <div id="walletDisplay" class="small">Not connected</div>
-          <button id="connectBtn" class="btn btn-primary" style="margin-top:6px;">Connect Wallet</button>
+          <button id="connectBtn" class="btn btn-red" style="margin-top:6px;">Connect Wallet</button>
         </div>
 
         <div class="small" style="margin-left:8px;min-width:180px;text-align:right;">
@@ -294,7 +344,7 @@
           </div>
         </div>
 
-        <!-- Liquidity card (unchanged) -->
+        <!-- Liquidity card -->
         <div class="card" style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div><strong>Liquidity & Utility</strong><div class="small">Mint BFL, add liquidity</div></div>
@@ -386,7 +436,8 @@
 
  <!-- External libs -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@8/dist/modal.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@9.0.2/dist/modal.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@web3auth/base@9.0.2/dist/base.umd.min.js"></script>
 
   <!-- Combined app script -->
   <script>
@@ -509,9 +560,12 @@
 
 async function initWeb3Auth() {
   try {
-    if (!window.Modal) throw new Error("Web3Auth library not loaded.");
-    const { Web3Auth, CHAIN_NAMESPACES, WEB3AUTH_NETWORK } = window.Modal;
+    if (!window.Modal || !window.Base) {  // ← Changed
+      throw new Error("Web3Auth libraries not loaded.");
+    }
     
+    const { Web3Auth } = window.Modal;  // ← Changed
+    const { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } = window.Base;  // ← Changed
     web3auth = new Web3Auth({
       clientId: CONFIG.WEB3AUTH_CLIENT_ID,
       web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_MAINNET,
@@ -602,17 +656,27 @@ async function initWeb3Auth() {
     }
 
     function updateWalletUI() {
-      const display = $("walletDisplay"), btn = $("connectBtn");
-      if (!display || !btn) return;
-      if (userAddress) {
-        display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-        btn.textContent = "Disconnect"; btn.onclick = disconnectWallet;
-        btn.classList.remove("btn-primary"); btn.classList.add("btn-ghost");
-      } else {
-        display.textContent = "Not connected"; btn.textContent = "Connect Wallet"; btn.onclick = connectWallet;
-        btn.classList.remove("btn-ghost"); btn.classList.add("btn-primary");
-      }
-    }
+  const display = $("walletDisplay"), btn = $("connectBtn");
+  if (!display || !btn) return;
+  
+  // Clear all button states
+  btn.disabled = false;
+  btn.classList.remove("loading");
+  
+  if (userAddress) {
+    display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+    btn.textContent = "● Connected";
+    btn.onclick = disconnectWallet;
+    btn.classList.remove("btn-primary", "btn-red");
+    btn.classList.add("btn-green");  // GREEN when connected
+  } else {
+    display.textContent = "Not connected";
+    btn.textContent = "Connect Wallet";
+    btn.onclick = connectWallet;
+    btn.classList.remove("btn-ghost", "btn-green");
+    btn.classList.add("btn-red");  // RED when disconnected
+  }
+}
 
     /* ==========================
        Pair reserves & price + chart
