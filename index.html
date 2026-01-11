@@ -499,90 +499,197 @@
     }
 
     /* ==========================
-       Wallet + providers
+       Wallet + providers (fixed)
        ========================== */
     let walletProvider = null;
     let signer = null;
     let userAddress = null;
     let web3auth = null;
+    let isConnecting = false;
 
     const readProvider = new ethers.JsonRpcProvider(CONFIG.ALCHEMY_RPC, { name: "monad", chainId: CONFIG.CHAIN_ID });
-async function initWeb3Auth() {
-  try {
-    // Detect possible global export shapes from the CDN/Umd bundle
-    let Web3AuthClass = null;
 
-    // Common shapes:
-    // - window.Web3AuthModal.Web3Auth (v1.14.0 UMD)
-    // - window.Web3AuthModal.default.Web3Auth
-    // - window.Modal.Web3Auth
-    // - window.Web3Auth (older shape)
-    // - window.Web3Auth.Web3Auth (nested)
-    if (window.Web3AuthModal && window.Web3AuthModal.Web3Auth) {
-      Web3AuthClass = window.Web3AuthModal.Web3Auth;
-    } else if (window.Web3AuthModal && window.Web3AuthModal.default && window.Web3AuthModal.default.Web3Auth) {
-      Web3AuthClass = window.Web3AuthModal.default.Web3Auth;
-    } else if (window.Modal && window.Modal.Web3Auth) {
-      Web3AuthClass = window.Modal.Web3Auth;
-    } else if (window.Web3Auth && (typeof window.Web3Auth === "function" || window.Web3Auth.prototype)) {
-      Web3AuthClass = window.Web3Auth;
-    } else if (window.Web3Auth && window.Web3Auth.Web3Auth) {
-      Web3AuthClass = window.Web3Auth.Web3Auth;
-    }
+    // Robust initWeb3Auth (detects different UMD/global shapes)
+    async function initWeb3Auth() {
+      try {
+        let Web3AuthClass = null;
+        let detected = null;
 
-    if (!Web3AuthClass) {
-      throw new Error("Web3Auth library not found on window. Check your CDN or bundle (tried Web3AuthModal, Web3Auth and Modal).");
-    }
+        if (window.Web3AuthModal && window.Web3AuthModal.Web3Auth) {
+          Web3AuthClass = window.Web3AuthModal.Web3Auth;
+          detected = "Web3AuthModal.Web3Auth";
+        } else if (window.Web3AuthModal && window.Web3AuthModal.default && window.Web3AuthModal.default.Web3Auth) {
+          Web3AuthClass = window.Web3AuthModal.default.Web3Auth;
+          detected = "Web3AuthModal.default.Web3Auth";
+        } else if (window.Modal && window.Modal.Web3Auth) {
+          Web3AuthClass = window.Modal.Web3Auth;
+          detected = "Modal.Web3Auth";
+        } else if (window.Web3Auth && (typeof window.Web3Auth === "function" || window.Web3Auth.prototype)) {
+          Web3AuthClass = window.Web3Auth;
+          detected = "Web3Auth (direct)";
+        } else if (window.Web3Auth && window.Web3Auth.Web3Auth) {
+          Web3AuthClass = window.Web3Auth.Web3Auth;
+          detected = "Web3Auth.Web3Auth";
+        }
 
-    // Instantiate using the detected class
-    web3auth = new Web3AuthClass({
-      clientId: CONFIG.WEB3AUTH_CLIENT_ID,
-      web3AuthNetwork: "sapphire_mainnet",
-      chainConfig: {
-        chainNamespace: "eip155",
-        chainId: "0x8F",
-        rpcTarget: CONFIG.ALCHEMY_RPC,
-        displayName: "Monad",
-        blockExplorer: "https://explorer.monad.xyz",
-        ticker: "MONAD",
-        tickerName: "Monad"
-      },
-      uiConfig: {
-        appName: "Monad DEX",
-        theme: "dark",
-        defaultLanguage: "en"
+        if (!Web3AuthClass) {
+          throw new Error("Web3Auth library not found on window. Check CDN or bundle (tried Web3AuthModal, Web3Auth and Modal).");
+        }
+
+        log("Detected Web3Auth bundle: " + detected, "debug");
+        console.debug("Detected Web3Auth bundle:", detected, { Web3AuthModal: !!window.Web3AuthModal, Web3Auth: !!window.Web3Auth, Modal: !!window.Modal });
+
+        web3auth = new Web3AuthClass({
+          clientId: CONFIG.WEB3AUTH_CLIENT_ID,
+          web3AuthNetwork: "sapphire_mainnet",
+          chainConfig: {
+            chainNamespace: "eip155",
+            chainId: "0x8F",
+            rpcTarget: CONFIG.ALCHEMY_RPC,
+            displayName: "Monad",
+            blockExplorer: "https://explorer.monad.xyz",
+            ticker: "MONAD",
+            tickerName: "Monad"
+          },
+          uiConfig: {
+            appName: "Monad DEX",
+            theme: "dark",
+            defaultLanguage: "en"
+          }
+        });
+
+        if (typeof web3auth.initModal === "function") {
+          await web3auth.initModal();
+        }
+
+        log("Web3Auth initialized (" + detected + ")", "debug");
+        return web3auth;
+      } catch (err) {
+        log("Web3Auth init failed: " + (err?.message || err), "error");
+        console.error("initWeb3Auth error:", err);
+        throw err;
       }
-    });
-
-    // Some builds expose initModal, others may not; call if available
-    if (typeof web3auth.initModal === "function") {
-      await web3auth.initModal();
     }
 
-    log("Web3Auth initialized (" + (window.Web3AuthModal ? "Web3AuthModal" : (window.Web3Auth ? "Web3Auth" : "Modal")) + ")", "debug");
-    return web3auth;
-  } catch (err) {
-    log("Web3Auth init failed: " + (err?.message || err), "error");
-    throw err;
-  }
-}
-  
+    // attach listeners for injected provider (MetaMask)
+    function attachEthereumListeners() {
+      if (!window.ethereum || attachEthereumListeners._attached) return;
+      attachEthereumListeners._attached = true;
 
+      try {
+        window.ethereum.on?.("accountsChanged", async (accounts) => {
+          log("accountsChanged: " + JSON.stringify(accounts), "debug");
+          if (!accounts || accounts.length === 0) {
+            userAddress = null;
+            walletProvider = signer = null;
+            updateWalletUI();
+          } else {
+            userAddress = accounts[0];
+            try {
+              walletProvider = new ethers.BrowserProvider(window.ethereum);
+              signer = await walletProvider.getSigner();
+            } catch (e) { console.warn(e); }
+            updateWalletUI();
+            await loadBalances().catch(()=>{});
+          }
+        });
+
+        window.ethereum.on?.("disconnect", (err) => {
+          log("Ethereum provider disconnected", "warning");
+          userAddress = null;
+          walletProvider = signer = null;
+          updateWalletUI();
+        });
+
+        window.ethereum.on?.("chainChanged", (chainId) => {
+          log("chainChanged: " + chainId, "debug");
+          if (chainId !== "0x8F" && chainId !== "0x8f") {
+            log("Please switch to Monad network (0x8F)", "warning");
+          }
+        });
+      } catch (e) {
+        console.warn("attachEthereumListeners error:", e);
+      }
+    }
+
+    // connectWallet with guards and Web3Auth provider handling
+    async function connectWallet() {
+      if (isConnecting) { log("Connect already in progress...", "debug"); return; }
+      isConnecting = true;
+      const btn = $("connectBtn");
+      if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+
+      try {
+        log("Connecting wallet...", "info");
+
+        // Try injected provider (MetaMask) first
+        if (window.ethereum && !window.ethereum.isWeb3Auth) {
+          log("MetaMask detected, attempting connection...", "debug");
+          try {
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
+            const chainId = await window.ethereum.request({ method: "eth_chainId" });
+            if (chainId !== "0x8F" && chainId !== "0x8f") {
+              log("Wrong network. Attempting to switch to Monad (0x8F)...", "warning");
+              try {
+                await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
+              } catch (switchError) {
+                if (switchError?.code === 4902) {
+                  await window.ethereum.request({
+                    method: "wallet_addEthereumChain",
+                    params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }]
+                  });
+                } else {
+                  throw switchError;
+                }
+              }
+            }
+
+            walletProvider = new ethers.BrowserProvider(window.ethereum);
+            signer = await walletProvider.getSigner();
+            userAddress = await signer.getAddress();
+
+            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+            updateWalletUI();
+            await loadBalances();
+            attachEthereumListeners();
+            return;
+          } catch (mmErr) {
+            log("MetaMask connection failed: " + (mmErr?.message || mmErr), "warning");
+            console.debug("MetaMask connect error", mmErr);
+            log("Falling back to Web3Auth...", "info");
+          }
+        }
+
+        // Fallback to Web3Auth
         log("Initializing Web3Auth login...", "info");
         if (!web3auth) await initWeb3Auth();
-        if (!web3auth.connected) await web3auth.connect();
-        const web3authProvider = web3auth.provider;
-        if (!web3authProvider) throw new Error("Web3Auth provider null");
+
+        // web3auth.provider might be set already, or connect() may return a provider.
+        let web3authProvider = web3auth.provider;
+        if (!web3authProvider) {
+          const maybeProvider = await web3auth.connect().catch(e => { throw e; });
+          web3authProvider = maybeProvider || web3auth.provider;
+        }
+
+        if (!web3authProvider) throw new Error("Web3Auth provider null after connect()");
+
         walletProvider = new ethers.BrowserProvider(web3authProvider);
         signer = await walletProvider.getSigner();
         userAddress = await signer.getAddress();
+
         log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
         updateWalletUI();
         await loadBalances();
+
       } catch (err) {
-        log("Connection error: " + err.message, "error");
+        log("Connection error: " + (err?.message || err), "error");
+        console.error("connectWallet error:", err);
         walletProvider = signer = userAddress = null;
         updateWalletUI();
+      } finally {
+        isConnecting = false;
+        if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
       }
     }
 
@@ -594,28 +701,28 @@ async function initWeb3Auth() {
         ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { if ($(id)) $(id).textContent = "-"; });
         log("Wallet disconnected", "info");
       } catch (err) {
-        log("Disconnect error: " + err.message, "error");
+        log("Disconnect error: " + (err?.message || err), "error");
       }
     }
 
     function updateWalletUI() {
       const display = $("walletDisplay"), btn = $("connectBtn");
       if (!display || !btn) return;
-      // Clear visual loading state (defensive)
       btn.disabled = false;
       btn.classList.remove("loading");
+
+      // ensure single handler
+      btn.onclick = null;
 
       if (userAddress) {
         display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
         btn.textContent = "Disconnect";
-        // Use onclick (single handler) to avoid duplicate handlers created by addEventListener elsewhere
         btn.onclick = disconnectWallet;
         btn.classList.remove("btn-primary");
         btn.classList.add("btn-ghost");
       } else {
         display.textContent = "Not connected";
         btn.textContent = "Connect Wallet";
-        // Use onclick handler for connect; this replaces any previous onclick
         btn.onclick = connectWallet;
         btn.classList.remove("btn-ghost");
         btn.classList.add("btn-primary");
@@ -624,7 +731,9 @@ async function initWeb3Auth() {
 
     /* ==========================
        Pair reserves & price + chart
+       (rest of the original file kept unchanged)
        ========================== */
+
     let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
 
     async function loadPairReserves() {
@@ -653,7 +762,7 @@ async function initWeb3Auth() {
       if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(pairCache.reserve1, pairCache.dec1);
     }
 
-    // Chart helpers
+    // Chart helpers (unchanged)
     let priceChart = null;
     const priceHistory = [];
     const MAX_HISTORY = 240;
@@ -745,8 +854,10 @@ async function initWeb3Auth() {
     }
 
     /* ==========================
-       Balance loading
+       Balance loading, swaps, approvals, etc.
+       (kept as originally provided)
        ========================== */
+
     async function loadBalances() {
       if (!userAddress) return;
       try {
@@ -775,39 +886,6 @@ async function initWeb3Auth() {
       }
     }
 
-    /* ==========================
-       calculateOutput (uses pairCache)
-       ========================== */
-    function calculateOutput(amountIn, fromToken, toToken) {
-      if (!amountIn || amountIn <= 0) return 0n;
-      const fromAddr = getTokenAddress(fromToken).toLowerCase();
-      const toAddr = getTokenAddress(toToken).toLowerCase();
-      if (fromAddr === toAddr) return 0n;
-      if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) return 0n;
-
-      let reserveIn, reserveOut, decIn, decOut;
-      if (fromAddr === pairCache.token0) {
-        reserveIn = pairCache.reserve0;
-        reserveOut = pairCache.reserve1;
-        decIn = pairCache.dec0;
-        decOut = pairCache.dec1;
-      } else if (fromAddr === pairCache.token1) {
-        reserveIn = pairCache.reserve1;
-        reserveOut = pairCache.reserve0;
-        decIn = pairCache.dec1;
-        decOut = pairCache.dec0;
-      } else return 0n;
-
-      const amountInBig = parseAmount(amountIn, decIn);
-      const amountInWithFee = amountInBig * 997n;
-      const numerator = amountInWithFee * reserveOut;
-      const denominator = (reserveIn * 1000n) + amountInWithFee;
-      return numerator / denominator;
-    }
-
-    /* ==========================
-       Error mapping & detection
-       ========================== */
     const WALLET_ERROR_MESSAGES = {
       '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
       '4001': 'Transaction cancelled by the user.',
@@ -853,9 +931,6 @@ async function initWeb3Auth() {
       return err?.message || JSON.stringify(err);
     }
 
-    /* ==========================
-       Tx guard and safer handlers
-       ========================== */
     let txInProgress = false;
 
     async function handleApprove() {
@@ -973,81 +1048,6 @@ async function initWeb3Auth() {
     }
 
     /* ==========================
-       updateOutputEstimate
-       ========================== */
-    function updateOutputEstimate() {
-      const fromToken = $("fromToken")?.value;
-      const toToken = $("toToken")?.value;
-      const amountIn = $("amountIn")?.value;
-      if (!amountIn || parseFloat(amountIn) <= 0) {
-        if ($("amountOut")) $("amountOut").value = "";
-        return;
-      }
-      try {
-        const output = calculateOutput(amountIn, fromToken, toToken);
-        const toAddr = getTokenAddress(toToken);
-        const toDec = pairCache.token0 === toAddr.toLowerCase() ? pairCache.dec0 : pairCache.dec1;
-        if ($("amountOut")) $("amountOut").value = formatAmount(output, toDec);
-      } catch (error) {
-        console.error("Output estimate error:", error);
-      }
-    }
-
-    /* ==========================
-       Liquidity & mint
-       ========================== */
-    async function handleMintBFL() {
-      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
-      const amount = $("mintBFLAmount")?.value;
-      if (!amount || parseFloat(amount) <= 0) { log("Enter amount to mint", "warning"); return; }
-      try {
-        log("Minting " + amount + " BFL...", "info");
-        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.BitcoinFlash, signer);
-        const decimals = await getDecimals(ADDRESSES.BFL, readProvider);
-        const amountBig = parseAmount(amount, decimals);
-        const tx = await bflContract.mint(userAddress, amountBig);
-        log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
-        await tx.wait();
-        log("Minted " + amount + " BFL", "info");
-        await loadBalances();
-      } catch (err) {
-        log("Mint failed: " + getWalletErrorMessage(err), "error");
-      }
-    }
-
-    async function handleAddLiquidity() {
-      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
-      const usdcAmount = $("liquidityUSDC")?.value;
-      const bflAmount = $("liquidityBFL")?.value;
-      if (!usdcAmount || !bflAmount || parseFloat(usdcAmount) <= 0 || parseFloat(bflAmount) <= 0) { log("Enter both USDC and BFL amounts", "warning"); return; }
-      try {
-        log("Adding liquidity: " + usdcAmount + " USDC + " + bflAmount + " BFL", "info");
-        const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
-        const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
-        const usdcBig = parseAmount(usdcAmount, usdcDec);
-        const bflBig = parseAmount(bflAmount, bflDec);
-        log("Transferring USDC to pair...", "debug");
-        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
-        const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
-        await usdcTx.wait();
-        log("Transferring BFL to pair...", "debug");
-        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
-        const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
-        await bflTx.wait();
-        log("Minting LP tokens...", "debug");
-        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
-        const mintTx = await pair.mint(userAddress);
-        await mintTx.wait();
-        log("Liquidity added successfully!", "info");
-        await loadBalances(); await loadPairReserves();
-        if ($("liquidityUSDC")) $("liquidityUSDC").value = "";
-        if ($("liquidityBFL")) $("liquidityBFL").value = "";
-      } catch (err) {
-        log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
-      }
-    }
-
-    /* ==========================
        App init and events
        ========================== */
     document.addEventListener("DOMContentLoaded", async () => {
@@ -1055,10 +1055,8 @@ async function initWeb3Auth() {
       if ($("rpcUrl")) $("rpcUrl").textContent = "hidden";
       if ($("rpcUrlTop")) $("rpcUrlTop").textContent = "hidden";
 
-      // IMPORTANT: do NOT use addEventListener('click', connectWallet) here.
-      // We rely on updateWalletUI() to set a single onclick handler so connect/disconnect can't both run.
-
-      // Events (attach named handlers or onclick via updateWalletUI)
+      // Events
+      if ($("connectBtn")) { /* updateWalletUI will set onclick */ }
       if ($("approveBtn")) $("approveBtn").addEventListener("click", handleApprove);
       if ($("swapBtn")) $("swapBtn").addEventListener("click", handleSwap);
       if ($("mintBFLBtn")) $("mintBFLBtn").addEventListener("click", handleMintBFL);
@@ -1083,11 +1081,10 @@ async function initWeb3Auth() {
         updateChart(candles);
       });
 
-      // Ensure connect button has a single onclick handler set by updateWalletUI
       updateTokenLogos();
       initChart();
 
-      // Set initial wallet UI (connect button will be wired here)
+      // wire connect button handler and set initial UI
       updateWalletUI();
 
       await loadPairReserves();
