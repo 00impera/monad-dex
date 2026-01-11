@@ -2,7 +2,7 @@
 
 | <img src="https://files.catbox.moe/ujzf30.gif" alt="USDC" width="36" height="36"> | USDC | USD Coin | `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` |
 | <img src="https://files.catbox.moe/lk7mrk.png" alt="BTCF" width="36" height="36"> | BTCF | BitcoinFlash | `0x7d7E0112d2763c98238aF7cebEAe33d53F3F76DD` |
-
+| <img src="https://files.catbox.moe/g3f9h8.png" alt="MDX"  width="36" height="36"> | MDX  | MDX COIN | `0x66238b63532509A9c9C2440DE341fd2335794a07` |
 This repository contains a small Uniswap-v2 style DEX prototype deployed on the Monad network (chainId 143). It includes token contracts, a factory/pair implementation, a MasterChef, an ActivityTracker, and convenience scripts to deploy, mint BFL, and add liquidity.
 
 This README documents:
