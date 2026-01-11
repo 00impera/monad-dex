@@ -157,7 +157,7 @@
   </style>
 
   <!-- Chart.js for the price chart -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@8/dist/modal.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -385,9 +385,9 @@
     </main>
   </div>
 
-  <!-- External libs -->
+ <!-- External libs -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@1.14.0/dist/index.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@8/dist/modal.umd.min.js"></script>
 
   <!-- Combined app script -->
   <script>
@@ -508,25 +508,38 @@
 
     const readProvider = new ethers.JsonRpcProvider(CONFIG.ALCHEMY_RPC, { name: "monad", chainId: CONFIG.CHAIN_ID });
 
-    async function initWeb3Auth() {
-      try {
-        if (!window.Web3Auth) throw new Error("Web3Auth library not loaded.");
-        const { Web3Auth } = window;
-        const { CHAIN_NAMESPACES } = window;
-        web3auth = new Web3Auth({
-          clientId: CONFIG.WEB3AUTH_CLIENT_ID,
-          web3AuthNetwork: "sapphire_mainnet",
-          chainConfig: { chainNamespace: CHAIN_NAMESPACES.EIP155, chainId: "0x8F", rpcTarget: CONFIG.ALCHEMY_RPC, displayName: "Monad", blockExplorer: "https://explorer.monad.xyz", ticker: "MONAD", tickerName: "Monad" },
-          uiConfig: { appName: "Monad DEX", theme: "dark", defaultLanguage: "en" }
-        });
-        await web3auth.initModal();
-        log("Web3Auth initialized", "debug");
-      } catch (err) {
-        log("Web3Auth init failed: " + err.message, "error");
-        throw err;
+async function initWeb3Auth() {
+  try {
+    if (!window.Modal) throw new Error("Web3Auth library not loaded.");
+    const { Web3Auth, CHAIN_NAMESPACES, WEB3AUTH_NETWORK } = window.Modal;
+    
+    web3auth = new Web3Auth({
+      clientId: CONFIG.WEB3AUTH_CLIENT_ID,
+      web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_MAINNET,
+      chainConfig: { 
+        chainNamespace: CHAIN_NAMESPACES.EIP155, 
+        chainId: "0x8F", 
+        rpcTarget: CONFIG.ALCHEMY_RPC, 
+        displayName: "Monad", 
+        blockExplorer: "https://explorer.monad.xyz", 
+        ticker: "MONAD", 
+        tickerName: "Monad" 
+      },
+      uiConfig: { 
+        appName: "Monad DEX", 
+        theme: { primary: "#00E6FF" }, 
+        mode: "dark", 
+        defaultLanguage: "en" 
       }
-    }
-
+    });
+    
+    await web3auth.initModal();
+    log("Web3Auth initialized", "debug");
+  } catch (err) {
+    log("Web3Auth init failed: " + (err?.message || err), "error");
+    throw err;
+  }
+}
     async function connectWallet() {
       try {
         log("Connecting wallet...", "info");
