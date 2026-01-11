@@ -633,9 +633,124 @@ async function initWeb3Auth() {
   }
 }
 
-    /* ==========================
-       Error helpers & diagnostics
-       ========================== */
+/* ==========================
+   Wallet connect/disconnect/UI
+   ========================== */
+async function connectWallet() {
+  const btn = $("connectBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('loading');
+  }
+
+  try {
+    log("Connecting wallet...", "info");
+    if (window.ethereum && !window.ethereum.isWeb3Auth) {
+      log("MetaMask detected, attempting connection...", "debug");
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        if (chainId !== "0x8F" && chainId !== "0x8f") {
+          log("Wrong network. Switching to Monad...", "warning");
+          try {
+            await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }] });
+            } else throw switchError;
+          }
+        }
+        walletProvider = new ethers.BrowserProvider(window.ethereum);
+        signer = await walletProvider.getSigner();
+        userAddress = await signer.getAddress();
+        log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+        updateWalletUI();
+        await loadBalances();
+        return;
+      } catch (mmError) {
+        log("MetaMask connection failed: " + mmError.message, "warning");
+        log("Falling back to Web3Auth...", "info");
+      }
+    }
+
+    log("Initializing Web3Auth login...", "info");
+    if (!web3auth) await initWeb3Auth();
+    if (!web3auth.connected) await web3auth.connect();
+    const web3authProvider = web3auth.provider;
+    if (!web3authProvider) throw new Error("Web3Auth provider null");
+    walletProvider = new ethers.BrowserProvider(web3authProvider);
+    signer = await walletProvider.getSigner();
+    userAddress = await signer.getAddress();
+    log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
+    updateWalletUI();
+    await loadBalances();
+  } catch (err) {
+    log("Connection error: " + err.message, "error");
+    dumpError(err);
+    walletProvider = signer = userAddress = null;
+    updateWalletUI();
+  } finally {
+    const btnFinal = $("connectBtn");
+    if (btnFinal) {
+      btnFinal.disabled = false;
+      btnFinal.classList.remove('loading');
+    }
+  }
+}
+
+async function disconnectWallet() {
+  try {
+    if (web3auth && web3auth.connected) {
+      await web3auth.logout();
+    }
+
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+
+    updateWalletUI();
+
+    ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => {
+      if ($(id)) $(id).textContent = "-";
+    });
+
+    log("Wallet disconnected", "info");
+  } catch (err) {
+    log("Disconnect error: " + err.message, "error");
+
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+    updateWalletUI();
+  }
+}
+
+function updateWalletUI() {
+  const display = $("walletDisplay"), btn = $("connectBtn");
+  if (!display || !btn) return;
+
+  btn.disabled = false;
+  btn.classList.remove("loading");
+
+  if (userAddress) {
+    display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+    btn.textContent = "● Connected";
+    btn.onclick = disconnectWallet;
+    btn.classList.remove("btn-primary", "btn-red");
+    btn.classList.add("btn-green");
+  } else {
+    display.textContent = "Not connected";
+    btn.textContent = "Connect Wallet";
+    btn.onclick = connectWallet;
+    btn.classList.remove("btn-ghost", "btn-green");
+    btn.classList.add("btn-red");
+  }
+}
+
+/* ==========================
+   Error helpers & diagnostics
+   ========================== */
     const WALLET_ERROR_MESSAGES = {
       '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
       '4001': 'Transaction cancelled by the user.',
@@ -963,25 +1078,9 @@ async function initWeb3Auth() {
       try {
         log("Approving " + fromToken + "...", "info");
         const tokenAddr = getTokenAddress(fromToken);
-
-        // Guard: ensure token address is valid
-        if (!tokenAddr) {
-          log("Invalid token selected for approval. Please choose a valid token.", "error");
-          txInProgress = false;
-          if (approveBtn) { approveBtn.disabled = false; approveBtn.classList.remove('loading'); }
-          return;
-        }
-
         const decimals = await getDecimals(tokenAddr, readProvider);
         const amount = parseAmount(amountIn, decimals);
         const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
-
-        if (!tokenContract) {
-          log("Failed to instantiate token contract for approval.", "error");
-          txInProgress = false;
-          if (approveBtn) { approveBtn.disabled = false; approveBtn.classList.remove('loading'); }
-          return;
-        }
 
         // estimateGas for approve (diagnostic)
         try {
@@ -1040,17 +1139,6 @@ async function initWeb3Auth() {
 
         const fromAddr = getTokenAddress(fromToken);
         const toAddr = getTokenAddress(toToken);
-
-        // Guards: ensure addresses are valid
-        if (!fromAddr) {
-          log("Invalid 'from' token selected. Please select a valid token.", "error");
-          return;
-        }
-        if (!toAddr) {
-          log("Invalid 'to' token selected. Please select a valid token.", "error");
-          return;
-        }
-
         const fromDec = await getDecimals(fromAddr, readProvider);
         const toDec = await getDecimals(toAddr, readProvider);
 
@@ -1065,12 +1153,6 @@ async function initWeb3Auth() {
 
         // 1) quick simulate transfer/transfer revert check via estimateGas
         const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
-
-        if (!tokenContract) {
-          log("Failed to instantiate token contract for transfer.", "error");
-          return;
-        }
-
         try {
           const estimate = await tokenContract.estimateGas.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
           log("transfer.estimateGas => " + estimate.toString(), "debug");
@@ -1099,6 +1181,7 @@ async function initWeb3Auth() {
 
         // 4) simulate swap via callStatic (detect revert reason)
         try {
+          // callStatic.swap will run locally and throw if revert would happen
           await pair.callStatic.swap(amount0Out, amount1Out, userAddress, "0x");
           log("swap simulation successful (callStatic) — looks OK", "debug");
         } catch (simErr) {
@@ -1114,6 +1197,7 @@ async function initWeb3Auth() {
         } catch (estErr) {
           log("Swap gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
           dumpError(estErr);
+          // continue — sometimes estimateGas fails on some RPCs despite callStatic success
         }
 
         // 6) send swap tx
@@ -1204,13 +1288,6 @@ async function initWeb3Auth() {
       const usdcAmount = $("liquidityUSDC")?.value;
       const bflAmount = $("liquidityBFL")?.value;
       if (!usdcAmount || !bflAmount || parseFloat(usdcAmount) <= 0 || parseFloat(bflAmount) <= 0) { log("Enter both USDC and BFL amounts", "warning"); return; }
-
-      // Guards: ensure addresses exist before creating contracts
-      if (!ADDRESSES.USDC || !ADDRESSES.BFL || !ADDRESSES.PAIR_USDC_BFL) {
-        log("Missing token/pair addresses in configuration.", "error");
-        return;
-      }
-
       try {
         log("Adding liquidity: " + usdcAmount + " USDC + " + bflAmount + " BFL", "info");
         const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
@@ -1219,12 +1296,10 @@ async function initWeb3Auth() {
         const bflBig = parseAmount(bflAmount, bflDec);
         log("Transferring USDC to pair...", "debug");
         const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
-        if (!usdcContract) { log("Failed to instantiate USDC contract", "error"); return; }
         const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
         await usdcTx.wait();
         log("Transferring BFL to pair...", "debug");
         const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
-        if (!bflContract) { log("Failed to instantiate BFL contract", "error"); return; }
         const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
         await bflTx.wait();
         log("Minting LP tokens...", "debug");
