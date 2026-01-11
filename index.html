@@ -507,57 +507,66 @@
     let web3auth = null;
 
     const readProvider = new ethers.JsonRpcProvider(CONFIG.ALCHEMY_RPC, { name: "monad", chainId: CONFIG.CHAIN_ID });
+async function initWeb3Auth() {
+  try {
+    // Detect possible global export shapes from the CDN/Umd bundle
+    let Web3AuthClass = null;
 
-    async function initWeb3Auth() {
-      try {
-        if (!window.Web3Auth) throw new Error("Web3Auth library not loaded.");
-        const { Web3Auth } = window;
-        const { CHAIN_NAMESPACES } = window;
-        web3auth = new Web3Auth({
-          clientId: CONFIG.WEB3AUTH_CLIENT_ID,
-          web3AuthNetwork: "sapphire_mainnet",
-          chainConfig: { chainNamespace: CHAIN_NAMESPACES.EIP155, chainId: "0x8F", rpcTarget: CONFIG.ALCHEMY_RPC, displayName: "Monad", blockExplorer: "https://explorer.monad.xyz", ticker: "MONAD", tickerName: "Monad" },
-          uiConfig: { appName: "Monad DEX", theme: "dark", defaultLanguage: "en" }
-        });
-        await web3auth.initModal();
-        log("Web3Auth initialized", "debug");
-      } catch (err) {
-        log("Web3Auth init failed: " + err.message, "error");
-        throw err;
-      }
+    // Common shapes:
+    // - window.Web3AuthModal.Web3Auth (v1.14.0 UMD)
+    // - window.Web3AuthModal.default.Web3Auth
+    // - window.Modal.Web3Auth
+    // - window.Web3Auth (older shape)
+    // - window.Web3Auth.Web3Auth (nested)
+    if (window.Web3AuthModal && window.Web3AuthModal.Web3Auth) {
+      Web3AuthClass = window.Web3AuthModal.Web3Auth;
+    } else if (window.Web3AuthModal && window.Web3AuthModal.default && window.Web3AuthModal.default.Web3Auth) {
+      Web3AuthClass = window.Web3AuthModal.default.Web3Auth;
+    } else if (window.Modal && window.Modal.Web3Auth) {
+      Web3AuthClass = window.Modal.Web3Auth;
+    } else if (window.Web3Auth && (typeof window.Web3Auth === "function" || window.Web3Auth.prototype)) {
+      Web3AuthClass = window.Web3Auth;
+    } else if (window.Web3Auth && window.Web3Auth.Web3Auth) {
+      Web3AuthClass = window.Web3Auth.Web3Auth;
     }
 
-    async function connectWallet() {
-      try {
-        log("Connecting wallet...", "info");
-        if (window.ethereum && !window.ethereum.isWeb3Auth) {
-          log("MetaMask detected, attempting connection...", "debug");
-          try {
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
-            const chainId = await window.ethereum.request({ method: "eth_chainId" });
-            if (chainId !== "0x8F" && chainId !== "0x8f") {
-              log("Wrong network. Switching to Monad...", "warning");
-              try {
-                await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
-              } catch (switchError) {
-                if (switchError.code === 4902) {
-                  await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }] });
-                } else throw switchError;
-              }
-            }
-            walletProvider = new ethers.BrowserProvider(window.ethereum);
-            signer = await walletProvider.getSigner();
-            userAddress = await signer.getAddress();
-            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
-            updateWalletUI();
-            await loadBalances();
-            return;
-          } catch (mmError) {
-            log("MetaMask connection failed: " + mmError.message, "warning");
-            log("Falling back to Web3Auth...", "info");
-          }
-        }
+    if (!Web3AuthClass) {
+      throw new Error("Web3Auth library not found on window. Check your CDN or bundle (tried Web3AuthModal, Web3Auth and Modal).");
+    }
+
+    // Instantiate using the detected class
+    web3auth = new Web3AuthClass({
+      clientId: CONFIG.WEB3AUTH_CLIENT_ID,
+      web3AuthNetwork: "sapphire_mainnet",
+      chainConfig: {
+        chainNamespace: "eip155",
+        chainId: "0x8F",
+        rpcTarget: CONFIG.ALCHEMY_RPC,
+        displayName: "Monad",
+        blockExplorer: "https://explorer.monad.xyz",
+        ticker: "MONAD",
+        tickerName: "Monad"
+      },
+      uiConfig: {
+        appName: "Monad DEX",
+        theme: "dark",
+        defaultLanguage: "en"
+      }
+    });
+
+    // Some builds expose initModal, others may not; call if available
+    if (typeof web3auth.initModal === "function") {
+      await web3auth.initModal();
+    }
+
+    log("Web3Auth initialized (" + (window.Web3AuthModal ? "Web3AuthModal" : (window.Web3Auth ? "Web3Auth" : "Modal")) + ")", "debug");
+    return web3auth;
+  } catch (err) {
+    log("Web3Auth init failed: " + (err?.message || err), "error");
+    throw err;
+  }
+}
+  
 
         log("Initializing Web3Auth login...", "info");
         if (!web3auth) await initWeb3Auth();
