@@ -600,32 +600,31 @@
 
 async function initWeb3Auth() {
   try {
-    if (!window.Modal || !window.Base) {  // ← Changed
+    if (!window.Modal || !window.Base) {
       throw new Error("Web3Auth libraries not loaded.");
     }
-    
-    const { Web3Auth } = window.Modal;  // ← Changed
-    const { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } = window.Base;  // ← Changed
+    const { Web3Auth } = window.Modal;
+    const { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } = window.Base;
     web3auth = new Web3Auth({
       clientId: CONFIG.WEB3AUTH_CLIENT_ID,
       web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_MAINNET,
-      chainConfig: { 
-        chainNamespace: CHAIN_NAMESPACES.EIP155, 
-        chainId: "0x8F", 
-        rpcTarget: CONFIG.ALCHEMY_RPC, 
-        displayName: "Monad", 
-        blockExplorer: "https://explorer.monad.xyz", 
-        ticker: "MONAD", 
-        tickerName: "Monad" 
+      chainConfig: {
+        chainNamespace: CHAIN_NAMESPACES.EIP155,
+        chainId: "0x8F",
+        rpcTarget: CONFIG.ALCHEMY_RPC,
+        displayName: "Monad",
+        blockExplorer: "https://explorer.monad.xyz",
+        ticker: "MONAD",
+        tickerName: "Monad"
       },
-      uiConfig: { 
-        appName: "Monad DEX", 
-        theme: { primary: "#00E6FF" }, 
-        mode: "dark", 
-        defaultLanguage: "en" 
+      uiConfig: {
+        appName: "Monad DEX",
+        theme: { primary: "#00E6FF" },
+        mode: "dark",
+        defaultLanguage: "en"
       }
     });
-    
+
     await web3auth.initModal();
     log("Web3Auth initialized", "debug");
   } catch (err) {
@@ -633,121 +632,95 @@ async function initWeb3Auth() {
     throw err;
   }
 }
-    async function connectWallet() {
-      const btn = $("connectBtn");
-      if (btn) {
-        btn.disabled = true;
-        btn.classList.add('loading');
-      }
 
+    /* ==========================
+       Error helpers & diagnostics
+       ========================== */
+    const WALLET_ERROR_MESSAGES = {
+      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
+      '4001': 'Transaction cancelled by the user.',
+      '4100': 'The requested account and/or method has not been authorized.',
+      '4900': 'The provider is disconnected. Please reconnect your wallet.',
+      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
+      '-32603': 'Internal error. Please try again.',
+    };
+
+    function dumpError(err) {
+      if (!err) return console.error("dumpError: no error object");
       try {
-        log("Connecting wallet...", "info");
-        if (window.ethereum && !window.ethereum.isWeb3Auth) {
-          log("MetaMask detected, attempting connection...", "debug");
+        console.error("=== ERROR DUMP START ===");
+        console.error("Error object:", err);
+        if (err?.reason) console.error("reason:", err.reason);
+        if (err?.message) console.error("message:", err.message);
+        if (err?.code) console.error("code:", err.code);
+        if (err?.data) console.error("data:", err.data);
+        if (err?.error) console.error("error:", err.error);
+        if (err?.body) console.error("body:", err.body);
+        if (typeof err?.body === "string") {
+          try { console.error("body json:", JSON.parse(err.body)); } catch(e){}
+        }
+        const maybeData = err?.data?.data || err?.error?.data || err?.data;
+        if (maybeData && typeof maybeData === "string" && maybeData.startsWith("0x")) {
           try {
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
-            const chainId = await window.ethereum.request({ method: "eth_chainId" });
-            if (chainId !== "0x8F" && chainId !== "0x8f") {
-              log("Wrong network. Switching to Monad...", "warning");
+            // Try both ethers v6 and v5 unpack helpers
+            const toUtf8 = ethers.toUtf8String || (ethers.utils && ethers.utils.toUtf8String);
+            // Many revert payloads contain the selector + encoded reason; try to decode entire hex payload to UTF8.
+            try {
+              console.error("decoded via toUtf8String:", toUtf8(maybeData));
+            } catch (e) {
+              // fallback: strip selector and decode
               try {
-                await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
-              } catch (switchError) {
-                if (switchError.code === 4902) {
-                  await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }] });
-                } else throw switchError;
-              }
+                const payload = "0x" + maybeData.replace(/^0x/, "").slice(8);
+                console.error("decoded fallback:", toUtf8(payload));
+              } catch (e2) {}
             }
-            walletProvider = new ethers.BrowserProvider(window.ethereum);
-            signer = await walletProvider.getSigner();
-            userAddress = await signer.getAddress();
-            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
-            updateWalletUI();
-            await loadBalances();
-            return;
-          } catch (mmError) {
-            log("MetaMask connection failed: " + mmError.message, "warning");
-            log("Falling back to Web3Auth...", "info");
+          } catch (e) {
+            // ignore decode errors
           }
         }
-
-        log("Initializing Web3Auth login...", "info");
-        if (!web3auth) await initWeb3Auth();
-        if (!web3auth.connected) await web3auth.connect();
-        const web3authProvider = web3auth.provider;
-        if (!web3authProvider) throw new Error("Web3Auth provider null");
-        walletProvider = new ethers.BrowserProvider(web3authProvider);
-        signer = await walletProvider.getSigner();
-        userAddress = await signer.getAddress();
-        log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
-        updateWalletUI();
-        await loadBalances();
-      } catch (err) {
-        log("Connection error: " + err.message, "error");
-        walletProvider = signer = userAddress = null;
-        updateWalletUI();
-      } finally {
-        const btnFinal = $("connectBtn");
-        if (btnFinal) {
-          btnFinal.disabled = false;
-          btnFinal.classList.remove('loading');
-        }
+        console.error("=== ERROR DUMP END ===");
+      } catch (e) {
+        console.error("dumpError failed:", e);
       }
     }
 
-   async function disconnectWallet() {
-  try {
-    if (web3auth && web3auth.connected) {
-      await web3auth.logout();
+    function isPendingRequest(err) {
+      if (!err) return false;
+      const candidates = [
+        err?.code,
+        err?.error?.code,
+        err?.data?.code,
+        err?.error?.data?.code,
+        err?.error?.error?.code
+      ];
+      for (const c of candidates) {
+        if (c === -32002 || String(c) === "-32002") return true;
+      }
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (!msg) return false;
+      if (msg.includes("already pending") || msg.includes("public_signtransaction") || (msg.includes("request of type") && msg.includes("already pending"))) return true;
+      return false;
     }
-    
-    // Clear wallet state BEFORE updating UI
-    walletProvider = null;
-    signer = null;
-    userAddress = null;
-    
-    // Update UI
-    updateWalletUI();
-    
-    // Clear balances
-    ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { 
-      if ($(id)) $(id).textContent = "-"; 
-    });
-    
-    log("Wallet disconnected", "info");
-  } catch (err) {
-    log("Disconnect error: " + err.message, "error");
-    
-    // Force clear even if logout fails
-    walletProvider = null;
-    signer = null;
-    userAddress = null;
-    updateWalletUI();
-  }
-}
 
-    function updateWalletUI() {
-  const display = $("walletDisplay"), btn = $("connectBtn");
-  if (!display || !btn) return;
-  
-  // Clear all button states
-  btn.disabled = false;
-  btn.classList.remove("loading");
-  
-  if (userAddress) {
-    display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-    btn.textContent = "● Connected";
-    btn.onclick = disconnectWallet;
-    btn.classList.remove("btn-primary", "btn-red");
-    btn.classList.add("btn-green");  // GREEN when connected
-  } else {
-    display.textContent = "Not connected";
-    btn.textContent = "Connect Wallet";
-    btn.onclick = connectWallet;
-    btn.classList.remove("btn-ghost", "btn-green");
-    btn.classList.add("btn-red");  // RED when disconnected
-  }
-}
+    function getWalletErrorMessage(err) {
+      if (!err) return 'Unknown error';
+      const nestedCodes = [ err?.code, err?.error?.code, err?.data?.code, err?.error?.data?.code ];
+      for (const c of nestedCodes) {
+        if (typeof c !== 'undefined' && c !== null) {
+          const key = String(c);
+          if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
+        }
+      }
+      const raw = err?.message || err?.error?.message || err?.data?.message || JSON.stringify(err);
+      const msg = String(raw).toLowerCase();
+      if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
+        return WALLET_ERROR_MESSAGES['-32002'];
+      }
+      if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
+      if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
+      // For internal errors, return mapped message plus raw details to help debugging
+      return (WALLET_ERROR_MESSAGES['-32603'] || 'Internal error. Please try again.') + " — details: " + raw;
+    }
 
     /* ==========================
        Pair reserves & price + chart
@@ -761,16 +734,15 @@ async function initWeb3Auth() {
         const el = $(id);
         if (el) {
           el.classList.add('skeleton');
-          // keep existing text but mark as loading if empty
           if (!el.textContent || el.textContent.trim() === '-') el.textContent = 'Loading...';
         }
       });
-      
+
       if ($("priceDisplay")) {
         $("priceDisplay").classList.add('skeleton');
         $("priceDisplay").textContent = "Loading...";
       }
-      
+
       try {
         const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, readProvider);
         const [token0, token1, reserves] = await Promise.all([pair.token0(), pair.token1(), pair.getReserves()]);
@@ -786,8 +758,8 @@ async function initWeb3Auth() {
         log("Pair reserves loaded", "debug");
       } catch (err) {
         log("Pair load error: " + (err?.message || err), "error");
+        dumpError(err);
       } finally {
-        // Remove loading states
         reserveElements.forEach(id => {
           const el = $(id);
           if (el) el.classList.remove('skeleton');
@@ -899,7 +871,7 @@ async function initWeb3Auth() {
        ========================== */
     async function loadBalances() {
       if (!userAddress) return;
-      
+
       // Add loading skeleton to balance elements
       const balanceElements = ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'];
       balanceElements.forEach(id => {
@@ -909,7 +881,7 @@ async function initWeb3Auth() {
           el.textContent = 'Loading...';
         }
       });
-      
+
       try {
         log("Loading balances...", "debug");
         const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
@@ -933,6 +905,7 @@ async function initWeb3Auth() {
         log("✓ Balances loaded", "info");
       } catch (err) {
         log("Balance load error: " + getWalletErrorMessage(err), "error");
+        dumpError(err);
         // Reset to dash on error
         ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'].forEach(id => {
           const el = $(id);
@@ -978,54 +951,6 @@ async function initWeb3Auth() {
     }
 
     /* ==========================
-       Error mapping & detection
-       ========================== */
-    const WALLET_ERROR_MESSAGES = {
-      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
-      '4001': 'Transaction cancelled by the user.',
-      '4100': 'The requested account and/or method has not been authorized.',
-      '4900': 'The provider is disconnected. Please reconnect your wallet.',
-      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
-      '-32603': 'Internal error. Please try again.',
-    };
-
-    function isPendingRequest(err) {
-      if (!err) return false;
-      const candidates = [
-        err?.code,
-        err?.error?.code,
-        err?.data?.code,
-        err?.error?.data?.code,
-        err?.error?.error?.code
-      ];
-      for (const c of candidates) {
-        if (c === -32002 || String(c) === "-32002") return true;
-      }
-      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
-      if (!msg) return false;
-      if (msg.includes("already pending") || msg.includes("public_signtransaction") || (msg.includes("request of type") && msg.includes("already pending"))) return true;
-      return false;
-    }
-
-    function getWalletErrorMessage(err) {
-      if (!err) return 'Unknown error';
-      const nestedCodes = [ err?.code, err?.error?.code, err?.data?.code, err?.error?.data?.code ];
-      for (const c of nestedCodes) {
-        if (typeof c !== 'undefined' && c !== null) {
-          const key = String(c);
-          if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
-        }
-      }
-      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
-      if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
-        return WALLET_ERROR_MESSAGES['-32002'];
-      }
-      if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
-      if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
-      return err?.message || JSON.stringify(err);
-    }
-
-    /* ==========================
        Tx guard and safer handlers
        ========================== */
     let txInProgress = false;
@@ -1049,15 +974,26 @@ async function initWeb3Auth() {
         const amount = parseAmount(amountIn, decimals);
         const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
 
+        // estimateGas for approve (diagnostic)
+        try {
+          const gasEst = await tokenContract.estimateGas.approve(ADDRESSES.PAIR_USDC_BFL, amount);
+          log("approve.estimateGas => " + gasEst.toString(), "debug");
+        } catch (estErr) {
+          log("Approve gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
+          dumpError(estErr);
+        }
+
         let tx;
         try {
           tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
         } catch (err) {
           if (isPendingRequest(err)) {
             log(getWalletErrorMessage(err), "warning");
+            dumpError(err);
             throw err;
           } else {
             log(getWalletErrorMessage(err), "warning");
+            dumpError(err);
             throw err;
           }
         }
@@ -1102,42 +1038,77 @@ async function initWeb3Auth() {
         const expectedOut = calculateOutput(amountIn, fromToken, toToken);
         const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
 
-        log("Transferring " + fromToken + " to pair...", "debug");
-        const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
+        log("computed (amountIn wei): " + amountInBig.toString(), "debug");
+        log("expectedOut (raw): " + expectedOut.toString() + "  formatted: " + formatAmount(expectedOut, toDec), "debug");
+        log("minOut (slippage adjusted): " + minOut.toString() + "  formatted: " + formatAmount(minOut, toDec), "debug");
+        log("pair reserves (decimals): dec0=" + pairCache.dec0 + " dec1=" + pairCache.dec1 + " reserve0=" + pairCache.reserve0 + " reserve1=" + pairCache.reserve1, "debug");
 
+        // 1) quick simulate transfer/transfer revert check via estimateGas
+        const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
+        try {
+          const estimate = await tokenContract.estimateGas.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+          log("transfer.estimateGas => " + estimate.toString(), "debug");
+        } catch (errEst) {
+          log("Transfer estimate failed (will NOT send): " + getWalletErrorMessage(errEst), "error");
+          dumpError(errEst);
+          throw errEst;
+        }
+
+        // 2) send transfer
         let transferTx;
         try {
           transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+          log("Transfer submitted: " + transferTx.hash.slice(0,10) + "...", "debug");
+          await transferTx.wait();
         } catch (err) {
-          log(getWalletErrorMessage(err), "warning");
+          log("Transfer failed: " + getWalletErrorMessage(err), "error");
+          dumpError(err);
           throw err;
         }
 
-        log("Transfer submitted: " + transferTx.hash.slice(0,10) + "...", "debug");
-        await transferTx.wait();
-
-        log("Executing swap...", "debug");
+        // 3) prepare swap amounts
         const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
-
         let amount0Out = 0n, amount1Out = 0n;
         if (toAddr.toLowerCase() === pairCache.token0) amount0Out = minOut; else amount1Out = minOut;
 
+        // 4) simulate swap via callStatic (detect revert reason)
+        try {
+          // callStatic.swap will run locally and throw if revert would happen
+          await pair.callStatic.swap(amount0Out, amount1Out, userAddress, "0x");
+          log("swap simulation successful (callStatic) — looks OK", "debug");
+        } catch (simErr) {
+          log("Swap simulation failed: " + getWalletErrorMessage(simErr), "error");
+          dumpError(simErr);
+          throw simErr;
+        }
+
+        // 5) estimate gas for swap (diagnostic)
+        try {
+          const gasEstimate = await pair.estimateGas.swap(amount0Out, amount1Out, userAddress, "0x");
+          log("swap.estimateGas => " + gasEstimate.toString(), "debug");
+        } catch (estErr) {
+          log("Swap gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
+          dumpError(estErr);
+          // continue — sometimes estimateGas fails on some RPCs despite callStatic success
+        }
+
+        // 6) send swap tx
         let swapTx;
         try {
           swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
+          log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
+          await swapTx.wait();
+          log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
         } catch (err) {
-          log(getWalletErrorMessage(err), "warning");
+          log("Swap failed: " + getWalletErrorMessage(err), "error");
+          dumpError(err);
           throw err;
         }
 
-        log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
-        await swapTx.wait();
-
-        log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
-        await loadBalances(); await loadPairReserves();
+        await loadBalances();
+        await loadPairReserves();
       } catch (err) {
-        if (![ -32002, 4001 ].includes(err?.code)) log("Swap failed: " + getWalletErrorMessage(err), "error");
-        console.error(err);
+        console.error("handleSwap final catch:", err);
       } finally {
         txInProgress = false;
         if (swapBtn) { swapBtn.disabled = false; swapBtn.classList.remove('loading'); }
@@ -1172,11 +1143,25 @@ async function initWeb3Auth() {
       if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
       const amount = $("mintBFLAmount")?.value;
       if (!amount || parseFloat(amount) <= 0) { log("Enter amount to mint", "warning"); return; }
+
+      const mintBtn = $("mintBFLBtn");
+      if (mintBtn) { mintBtn.disabled = true; mintBtn.classList.add('loading'); }
+
       try {
         log("Minting " + amount + " BFL...", "info");
         const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.BitcoinFlash, signer);
         const decimals = await getDecimals(ADDRESSES.BFL, readProvider);
         const amountBig = parseAmount(amount, decimals);
+
+        // diagnostic estimateGas
+        try {
+          const est = await bflContract.estimateGas.mint(userAddress, amountBig);
+          log("mint.estimateGas => " + est.toString(), "debug");
+        } catch (estErr) {
+          log("Mint gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
+          dumpError(estErr);
+        }
+
         const tx = await bflContract.mint(userAddress, amountBig);
         log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
         await tx.wait();
@@ -1184,6 +1169,9 @@ async function initWeb3Auth() {
         await loadBalances();
       } catch (err) {
         log("Mint failed: " + getWalletErrorMessage(err), "error");
+        dumpError(err);
+      } finally {
+        if (mintBtn) { mintBtn.disabled = false; mintBtn.classList.remove('loading'); }
       }
     }
 
@@ -1216,6 +1204,7 @@ async function initWeb3Auth() {
         if ($("liquidityBFL")) $("liquidityBFL").value = "";
       } catch (err) {
         log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
+        dumpError(err);
       }
     }
 
