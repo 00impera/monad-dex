@@ -203,7 +203,7 @@
 
     .chrome-rim { border: 1px solid rgba(255,255,255,0.04); background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.002)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); border-radius: 10px; }
 
-    :focus { outline: 3px solid rgba(0,230,255,0.06); outline-offset: 2px; }
+  :focus { outline: 3px solid rgba(0,230,255,0.06); outline-offset: 2px; }
   </style>
 <!-- Chart.js for the price chart -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -643,17 +643,36 @@ async function initWeb3Auth() {
       }
     }
 
-    async function disconnectWallet() {
-      try {
-        if (web3auth && web3auth.connected) await web3auth.logout();
-        walletProvider = signer = userAddress = null;
-        updateWalletUI();
-        ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { if ($(id)) $(id).textContent = "-"; });
-        log("Wallet disconnected", "info");
-      } catch (err) {
-        log("Disconnect error: " + err.message, "error");
-      }
+   async function disconnectWallet() {
+  try {
+    if (web3auth && web3auth.connected) {
+      await web3auth.logout();
     }
+    
+    // Clear wallet state BEFORE updating UI
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+    
+    // Update UI
+    updateWalletUI();
+    
+    // Clear balances
+    ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { 
+      if ($(id)) $(id).textContent = "-"; 
+    });
+    
+    log("Wallet disconnected", "info");
+  } catch (err) {
+    log("Disconnect error: " + err.message, "error");
+    
+    // Force clear even if logout fails
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+    updateWalletUI();
+  }
+}
 
     function updateWalletUI() {
   const display = $("walletDisplay"), btn = $("connectBtn");
