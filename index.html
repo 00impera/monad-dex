@@ -1461,15 +1461,22 @@ async function loadBalances() {
   }
 }
 
-// ...rest of your code (swap logic, pair logic, etc.)
+// Wire up events
+if ($("fromToken")) $("fromToken").addEventListener("change", updateTokenLogos);
+if ($("toToken")) $("toToken").addEventListener("change", updateTokenLogos);
+if ($("swapFlip"))
+  $("swapFlip").addEventListener("click", () => {
+    const a = $("fromToken").value;
+    $("fromToken").value = $("toToken").value;
+    $("toToken").value = a;
+    updateTokenLogos();
+  });
+if ($("connectBtn")) $("connectBtn").addEventListener("click", connectWallet);
 
-// initial load
-await loadBalances();
+// Initial logos and UI log
+updateTokenLogos();
 log(
   "UI initialized. Reads via Alchemy. Polling every " + (POLL_MS / 1000) + "s.",
   "debug"
 );
 })();
-</script>
-</body>
-</html>
