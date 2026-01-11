@@ -68,46 +68,23 @@
       border: 0;
       cursor: pointer;
       font-weight: 700;
-      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s, background 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s;
       will-change: transform, box-shadow;
     }
 
     .btn-primary {
       background: linear-gradient(180deg, rgba(0,230,255,0.12), rgba(0,184,255,0.10));
-      color: #E6F0FF;
+      color: #011219;
       border: 1px solid rgba(0,230,255,0.18);
+      box-shadow: 0 6px 30px rgba(0,46,60,0.55), 0 0 18px rgba(0,230,255,0.06);
+      border-radius: 12px;
+    }
 
     .btn-ghost {
       background: transparent;
       border: 1px solid rgba(255,255,255,0.06);
       color: var(--text);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
-    }
-
-    .btn-green {
-      background: linear-gradient(135deg, #00ff88 0%, #00cc66 100%) !important;
-      color: #002211 !important;
-      border: 1px solid rgba(0, 255, 136, 0.3) !important;
-      box-shadow: 0 6px 30px rgba(0, 255, 136, 0.25), 0 0 18px rgba(0, 255, 136, 0.15) !important;
-      border-radius: 12px !important;
-    }
-
-    .btn-green:hover {
-      background: linear-gradient(135deg, #00ff99 0%, #00dd77 100%) !important;
-      box-shadow: 0 8px 35px rgba(0, 255, 136, 0.35) !important;
-    }
-
-    .btn-red {
-      background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%) !important;
-      color: #ffffff !important;
-      border: 1px solid rgba(255, 68, 68, 0.3) !important;
-      box-shadow: 0 6px 30px rgba(255, 68, 68, 0.25), 0 0 18px rgba(255, 68, 68, 0.15) !important;
-      border-radius: 12px !important;
-    }
-
-    .btn-red:hover {
-      background: linear-gradient(135deg, #ff5555 0%, #dd1111 100%) !important;
-      box-shadow: 0 8px 35px rgba(255, 68, 68, 0.35) !important;
     }
 
     .btn:hover { transform: translateY(-2px); }
@@ -164,52 +141,23 @@
       border: 1px solid rgba(0,230,255,0.08);
     }
 
-    /* ... rest of CSS (unchanged) ... */
+    .neon-pulse { position: relative; padding: 8px 12px; border-radius: 10px; background: linear-gradient(90deg, rgba(0,230,255,0.06), rgba(0,184,255,0.03)); border: 1px solid rgba(0,230,255,0.12); color: #CFF8FF; }
 
-  :focus { outline: 3px solid rgba(0,230,255,0.06); outline-offset: 2px; }
+    .stat { font-family: ui-monospace, Menlo, Monaco; color: #D8F8FF; padding: 6px 8px; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.12)); border: 1px solid rgba(255,255,255,0.02); }
 
-  /* Loading skeleton animations */
-  .skeleton {
-    background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 6px;
-    color: transparent !important;
-    pointer-events: none;
-  }
+    pre#log { background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.62)); padding: 10px; border-radius: 8px; color: var(--log-info); max-height: 260px; overflow: auto; white-space: pre-wrap; font-size: 12px; border: 1px solid rgba(0,230,255,0.04); }
 
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
+    .chart-placeholder { height: 260px; border-radius: 10px; background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.42)); border: 1px solid rgba(255,255,255,0.02); margin-bottom: 12px; }
 
-  .loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(5, 6, 10, 0.7);
-    backdrop-filter: blur(3px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius);
-    z-index: 10;
-  }
+    @media (max-width: 980px) { .main-grid { grid-template-columns: 1fr; } header { flex-direction: column; gap: 10px; align-items: flex-start; } }
 
-  .spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(0, 230, 255, 0.1);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
+    .chrome-rim { border: 1px solid rgba(255,255,255,0.04); background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.002)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); border-radius: 10px; }
 
+    :focus { outline: 3px solid rgba(0,230,255,0.06); outline-offset: 2px; }
   </style>
-<!-- Chart.js for the price chart -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Chart.js for the price chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -253,7 +201,7 @@
 
         <div style="display:flex;flex-direction:column;align-items:flex-end;">
           <div id="walletDisplay" class="small">Not connected</div>
-          <button id="connectBtn" class="btn btn-red" style="margin-top:6px;">Connect Wallet</button>
+          <button id="connectBtn" class="btn btn-primary" style="margin-top:6px;">Connect Wallet</button>
         </div>
 
         <div class="small" style="margin-left:8px;min-width:180px;text-align:right;">
@@ -264,12 +212,182 @@
 
     <!-- Main Grid -->
     <main class="main-grid" role="main" aria-label="Main Dashboard">
-      <!-- ... page content unchanged ... -->
+      <section>
+        <!-- Chart -->
+        <div class="card" style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <strong>Price Chart</strong>
+              <div class="small">Live candles • Neon view</div>
+            </div>
+            <div class="small">Market: USDC/BFL</div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <div id="priceChart" class="chart-placeholder chrome-rim" role="img" aria-label="Price chart placeholder">
+              <canvas id="priceChartCanvas" width="1200" height="360" style="width:100%;height:100%;border-radius:10px;"></canvas>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+              <div>
+                <select id="timeframe" class="chrome-rim" style="padding:8px;border-radius:8px;">
+                  <option value="1m">1m</option><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option><option value="4h">4h</option><option value="1d">1d</option>
+                </select>
+              </div>
+              <div class="small">Indicators: EMA / RSI (future)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Swap card -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Swap</strong><div class="small">Direct pair transfer → swap (no router)</div></div>
+            <div class="small">RPC: <span id="rpcUrlTop">hidden</span></div>
+          </div>
+
+          <div style="margin-top:12px">
+            <label class="small">From</label>
+            <div class="token-input">
+              <img id="fromLogo" class="token-logo" src="https://files.catbox.moe/ujzf30.gif" alt="USDC">
+              <input id="amountIn" type="number" placeholder="0.0" step="any" />
+              <select id="fromToken">
+                <option value="USDC">USDC</option>
+                <option value="BFL">BFL</option>
+                <option value="MDX">MDX</option>
+              </select>
+              <div style="margin-left:auto" class="small">Balance: <span id="fromBalance">-</span></div>
+            </div>
+          </div>
+
+          <div style="text-align:center;margin:12px 0">
+            <button id="swapFlip" class="btn btn-ghost">⇅</button>
+          </div>
+
+          <div>
+            <label class="small">To (estimate)</label>
+            <div class="token-input">
+              <img id="toLogo" class="token-logo" src="https://files.catbox.moe/lk7mrk.png" alt="BFL">
+              <input id="amountOut" type="text" placeholder="0.0" readonly />
+              <select id="toToken">
+                <option value="BFL">BFL</option>
+                <option value="USDC">USDC</option>
+                <option value="MDX">MDX</option>
+              </select>
+              <div style="margin-left:auto" class="small">Balance: <span id="toBalance">-</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <label class="small">Slippage tolerance (%)</label>
+            <input id="slippage" type="number" step="0.1" value="0.5" style="width:120px;padding:6px;border-radius:8px;border:1px solid var(--card-edge)" />
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button id="approveBtn" class="btn btn-ghost">Approve</button>
+            <button id="swapBtn" class="btn btn-primary">Swap</button>
+            <button id="refreshAllBtn" class="btn btn-ghost" title="Refresh balances & reserves">Refresh All</button>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="small">Logs</div>
+            <pre id="log">Ready.</pre>
+          </div>
+        </div>
+
+        <!-- Liquidity card (unchanged) -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><strong>Liquidity & Utility</strong><div class="small">Mint BFL, add liquidity</div></div>
+          </div>
+
+          <div style="margin-top:12px" class="small">Mint BFL (owner-only)</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="mintBFLAmount" type="number" step="any" placeholder="amount" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--card-edge)" />
+            <button id="mintBFLBtn" class="btn btn-primary">Mint BFL</button>
+          </div>
+
+          <div style="margin-top:12px" class="small">Add liquidity (transfer -> mint)</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="liquidityUSDC" type="number" step="any" placeholder="USDC amount" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--card-edge)" />
+            <input id="liquidityBFL" type="number" step="any" placeholder="BFL amount" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--card-edge)" />
+          </div>
+          <div style="margin-top:8px">
+            <button id="addLiquidityBtn" class="btn btn-primary">Add Liquidity</button>
+          </div>
+        </div>
+      </section>
+
+      <aside>
+        <div class="card" style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>Portfolio</strong><div class="small">Overview</div></div>
+            <div class="small">Net P/L</div>
+          </div>
+
+          <div style="margin-top:12px" class="small">Total value: <span id="portfolioValue" class="stat">-</span></div>
+          <div style="margin-top:8px" class="small">USDC: <span id="balanceUSDC" class="stat">-</span></div>
+          <div style="margin-top:6px" class="small">BFL: <span id="balanceBFL" class="stat">-</span></div>
+          <div style="margin-top:12px">
+            <button id="refreshBalancesBtn" class="btn btn-ghost">Refresh Balances</button>
+          </div>
+        </div>
+
+        <div class="card chrome-rim" style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>Recent Transactions</strong></div>
+            <div class="small">On-chain</div>
+          </div>
+
+          <div id="recentTxs" style="margin-top:12px" class="small"><div>-</div></div>
+        </div>
+
+        <div class="card chrome-rim" style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>Favorite Pairs</strong></div>
+            <div class="small">Quick select</div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-ghost" onclick="document.getElementById('fromToken').value='USDC';document.getElementById('toToken').value='BFL';updateTokenLogos();updateOutputEstimate();">USDC / BFL</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('fromToken').value='USDC';document.getElementById('toToken').value='MDX';updateTokenLogos();updateOutputEstimate();">USDC / MDX</button>
+          </div>
+        </div>
+
+        <div class="card chrome-rim" style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>Chain Activity</strong><div class="small">Gas • Blocks • Mempool</div></div>
+            <div class="small">Live</div>
+          </div>
+
+          <div id="chainActivity" style="margin-top:12px;">
+            <div class="small">Latest block: <span id="latestBlock">-</span></div>
+            <div class="small" style="margin-top:8px;">Mempool txs: <span id="mempoolCount">-</span></div>
+          </div>
+        </div>
+
+        <div class="card chrome-rim">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>Pair Reserves</strong></div>
+            <div class="small">Pair: 0x57489A99...5d62</div>
+          </div>
+
+          <div style="margin-top:12px" class="small">token0: <span id="pairToken0" class="stat">-</span></div>
+          <div style="margin-top:6px" class="small">reserve0: <span id="pairReserve0" class="stat">-</span></div>
+          <div style="margin-top:10px" class="small">token1: <span id="pairToken1" class="stat">-</span></div>
+          <div style="margin-top:6px" class="small">reserve1: <span id="pairReserve1" class="stat">-</span></div>
+
+          <div style="margin-top:12px">
+            <button id="refreshReservesBtn" class="btn btn-ghost">Refresh Reserves</button>
+          </div>
+        </div>
+      </aside>
     </main>
   </div>
 
- <!-- External libs -->
+  <!-- External libs -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@1.14.0/dist/index.umd.min.js"></script>
 
   <!-- Combined app script -->
   <script>
@@ -390,134 +508,297 @@
 
     const readProvider = new ethers.JsonRpcProvider(CONFIG.ALCHEMY_RPC, { name: "monad", chainId: CONFIG.CHAIN_ID });
 
-/* NOTE: initWeb3Auth() and Web3Auth usage were removed per requested changes.
-   If you still need Web3Auth in future, re-add initialization and the script tags. */
-
-/* ==========================
-   Wallet connect/disconnect/UI
-   ========================== */
-async function connectWallet() {
-  const btn = $("connectBtn");
-  if (btn) {
-    btn.disabled = true;
-    btn.classList.add('loading');
-  }
-
-  try {
-    log("🔍 Checking for wallet...", "info");
-    
-    if (typeof window.ethereum === 'undefined') {
-      throw new Error("No wallet detected. Install MetaMask first.");
-    }
-
-    log("✓ Wallet detected", "debug");
-    
-    const accounts = await window.ethereum.request({ 
-      method: "eth_requestAccounts" 
-    });
-
-    if (!accounts || accounts.length === 0) {
-      throw new Error("No accounts available");
-    }
-
-    const chainId = await window.ethereum.request({ method: "eth_chainId" });
-    
-    if (chainId !== "0x8F" && chainId !== "0x8f") {
-      log("Wrong network. Switching to Monad...", "warning");
+    async function initWeb3Auth() {
       try {
-        await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x8F" }]
+        if (!window.Web3Auth) throw new Error("Web3Auth library not loaded.");
+        const { Web3Auth } = window;
+        const { CHAIN_NAMESPACES } = window;
+        web3auth = new Web3Auth({
+          clientId: CONFIG.WEB3AUTH_CLIENT_ID,
+          web3AuthNetwork: "sapphire_mainnet",
+          chainConfig: { chainNamespace: CHAIN_NAMESPACES.EIP155, chainId: "0x8F", rpcTarget: CONFIG.ALCHEMY_RPC, displayName: "Monad", blockExplorer: "https://explorer.monad.xyz", ticker: "MONAD", tickerName: "Monad" },
+          uiConfig: { appName: "Monad DEX", theme: "dark", defaultLanguage: "en" }
         });
-      } catch (switchError) {
-        if (switchError && switchError.code === 4902) {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [{
-              chainId: "0x8F",
-              chainName: "Monad Mainnet",
-              rpcUrls: [CONFIG.ALCHEMY_RPC],
-              nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 },
-              blockExplorerUrls: ["https://explorer.monad.xyz"]
-            }]
-          });
-        } else {
-          throw switchError;
-        }
+        await web3auth.initModal();
+        log("Web3Auth initialized", "debug");
+      } catch (err) {
+        log("Web3Auth init failed: " + err.message, "error");
+        throw err;
       }
     }
 
-    walletProvider = new ethers.BrowserProvider(window.ethereum);
-    signer = await walletProvider.getSigner();
-    userAddress = await signer.getAddress();
-    
-    log("✅ Connected: " + (userAddress ? userAddress.slice(0,8) + "..." : userAddress), "info");
-    updateWalletUI();
-    await loadBalances();
-    await loadPairReserves();
-    
-  } catch (err) {
-    log("❌ Connection failed: " + (err && err.message ? err.message : String(err)), "error");
-    console.error(err);
-    walletProvider = signer = userAddress = null;
-    updateWalletUI();
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.classList.remove('loading');
+    async function connectWallet() {
+      try {
+        log("Connecting wallet...", "info");
+        if (window.ethereum && !window.ethereum.isWeb3Auth) {
+          log("MetaMask detected, attempting connection...", "debug");
+          try {
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
+            const chainId = await window.ethereum.request({ method: "eth_chainId" });
+            if (chainId !== "0x8F" && chainId !== "0x8f") {
+              log("Wrong network. Switching to Monad...", "warning");
+              try {
+                await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
+              } catch (switchError) {
+                if (switchError.code === 4902) {
+                  await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }] });
+                } else throw switchError;
+              }
+            }
+            walletProvider = new ethers.BrowserProvider(window.ethereum);
+            signer = await walletProvider.getSigner();
+            userAddress = await signer.getAddress();
+            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+            updateWalletUI();
+            await loadBalances();
+            return;
+          } catch (mmError) {
+            log("MetaMask connection failed: " + mmError.message, "warning");
+            log("Falling back to Web3Auth...", "info");
+          }
+        }
+
+        log("Initializing Web3Auth login...", "info");
+        if (!web3auth) await initWeb3Auth();
+        if (!web3auth.connected) await web3auth.connect();
+        const web3authProvider = web3auth.provider;
+        if (!web3authProvider) throw new Error("Web3Auth provider null");
+        walletProvider = new ethers.BrowserProvider(web3authProvider);
+        signer = await walletProvider.getSigner();
+        userAddress = await signer.getAddress();
+        log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
+        updateWalletUI();
+        await loadBalances();
+      } catch (err) {
+        log("Connection error: " + err.message, "error");
+        walletProvider = signer = userAddress = null;
+        updateWalletUI();
+      }
     }
-  }
-}
 
-async function disconnectWallet() {
-  try {
-    // Web3Auth logout removed (no-op if not used)
-    walletProvider = null;
-    signer = null;
-    userAddress = null;
+    async function disconnectWallet() {
+      try {
+        if (web3auth && web3auth.connected) await web3auth.logout();
+        walletProvider = signer = userAddress = null;
+        updateWalletUI();
+        ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { if ($(id)) $(id).textContent = "-"; });
+        log("Wallet disconnected", "info");
+      } catch (err) {
+        log("Disconnect error: " + err.message, "error");
+      }
+    }
 
-    updateWalletUI();
+    function updateWalletUI() {
+      const display = $("walletDisplay"), btn = $("connectBtn");
+      if (!display || !btn) return;
+      // Clear visual loading state (defensive)
+      btn.disabled = false;
+      btn.classList.remove("loading");
 
-    ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => {
-      if ($(id)) $(id).textContent = "-";
-    });
+      if (userAddress) {
+        display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+        btn.textContent = "Disconnect";
+        // Use onclick (single handler) to avoid duplicate handlers created by addEventListener elsewhere
+        btn.onclick = disconnectWallet;
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-ghost");
+      } else {
+        display.textContent = "Not connected";
+        btn.textContent = "Connect Wallet";
+        // Use onclick handler for connect; this replaces any previous onclick
+        btn.onclick = connectWallet;
+        btn.classList.remove("btn-ghost");
+        btn.classList.add("btn-primary");
+      }
+    }
 
-    log("Wallet disconnected", "info");
-  } catch (err) {
-    log("Disconnect error: " + err.message, "error");
+    /* ==========================
+       Pair reserves & price + chart
+       ========================== */
+    let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
 
-    walletProvider = null;
-    signer = null;
-    userAddress = null;
-    updateWalletUI();
-  }
-}
+    async function loadPairReserves() {
+      try {
+        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, readProvider);
+        const [token0, token1, reserves] = await Promise.all([pair.token0(), pair.token1(), pair.getReserves()]);
+        const dec0 = await getDecimals(token0, readProvider);
+        const dec1 = await getDecimals(token1, readProvider);
+        pairCache = {
+          token0: token0.toLowerCase(), token1: token1.toLowerCase(),
+          reserve0: BigInt(reserves[0].toString()), reserve1: BigInt(reserves[1].toString()),
+          dec0, dec1
+        };
+        updatePairUI();
+        updatePrice();
+        log("Pair reserves loaded", "debug");
+      } catch (err) {
+        log("Pair load error: " + (err?.message || err), "error");
+      }
+    }
 
-function updateWalletUI() {
-  const display = $("walletDisplay"), btn = $("connectBtn");
-  if (!display || !btn) return;
+    function updatePairUI() {
+      if ($("pairToken0")) $("pairToken0").textContent = pairCache.token0 || "-";
+      if ($("pairToken1")) $("pairToken1").textContent = pairCache.token1 || "-";
+      if ($("pairReserve0")) $("pairReserve0").textContent = formatAmount(pairCache.reserve0, pairCache.dec0);
+      if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(pairCache.reserve1, pairCache.dec1);
+    }
 
-  btn.disabled = false;
-  btn.classList.remove("loading");
+    // Chart helpers
+    let priceChart = null;
+    const priceHistory = [];
+    const MAX_HISTORY = 240;
+    const TIMEFRAMES = { "1m": 60000, "5m": 300000, "15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000 };
+    let currentTimeframe = "1m";
 
-  if (userAddress) {
-    display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-    btn.textContent = "● Connected";
-    btn.onclick = disconnectWallet;
-    btn.classList.remove("btn-primary", "btn-red");
-    btn.classList.add("btn-green");
-  } else {
-    display.textContent = "Not connected";
-    btn.textContent = "Connect Wallet";
-    btn.onclick = connectWallet;
-    btn.classList.remove("btn-ghost", "btn-green");
-    btn.classList.add("btn-red");
-  }
-}
+    function initChart() {
+      const ctx = document.getElementById('priceChartCanvas').getContext('2d');
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Price (USDC)',
+            data: [],
+            borderColor: '#00E6FF',
+            backgroundColor: 'rgba(0,230,255,0.06)',
+            pointRadius: 0,
+            tension: 0.18,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { display: true, ticks: { color: '#CFE8FF' } },
+            y: { display: true, ticks: { color: '#CFE8FF' }, beginAtZero: false }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          }
+        }
+      });
+    }
 
-/* ==========================
-   Error helpers & diagnostics
-   ========================== */
+    function addPriceToHistory(price) {
+      const ts = Date.now();
+      priceHistory.push({ ts, price: Number(price) });
+      if (priceHistory.length > MAX_HISTORY) priceHistory.shift();
+      const candles = groupPricesByTimeframe(priceHistory, TIMEFRAMES[currentTimeframe]);
+      updateChart(candles);
+    }
+
+    function groupPricesByTimeframe(points, timeframeMs) {
+      if (!points.length) return [];
+      const buckets = {};
+      for (const p of points) {
+        const bucket = Math.floor(p.ts / timeframeMs) * timeframeMs;
+        if (!buckets[bucket]) buckets[bucket] = { open: p.price, high: p.price, low: p.price, close: p.price, ts: bucket };
+        else {
+          buckets[bucket].high = Math.max(buckets[bucket].high, p.price);
+          buckets[bucket].low = Math.min(buckets[bucket].low, p.price);
+          buckets[bucket].close = p.price;
+        }
+      }
+      return Object.values(buckets).sort((a,b) => a.ts - b.ts);
+    }
+
+    function updateChart(candles) {
+      if (!priceChart) return;
+      const labels = candles.map(c => new Date(c.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      const data = candles.map(c => Number(c.close.toFixed(6)));
+      priceChart.data.labels = labels;
+      priceChart.data.datasets[0].data = data;
+      priceChart.update('none');
+    }
+
+    function updatePrice() {
+      if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) {
+        if ($("priceDisplay")) $("priceDisplay").textContent = "price: n/a";
+        return;
+      }
+      const usdcAddr = ADDRESSES.USDC.toLowerCase();
+      let priceUSDC;
+      if (pairCache.token0 === usdcAddr) {
+        const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
+        const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
+        priceUSDC = r0 / r1;
+      } else {
+        const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
+        const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
+        priceUSDC = r1 / r0;
+      }
+      if ($("priceDisplay")) $("priceDisplay").textContent = `price: $${priceUSDC.toFixed(6)}`;
+      addPriceToHistory(priceUSDC);
+      return priceUSDC;
+    }
+
+    /* ==========================
+       Balance loading
+       ========================== */
+    async function loadBalances() {
+      if (!userAddress) return;
+      try {
+        log("Loading balances...", "debug");
+        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
+        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
+
+        const [usdcBal, bflBal, usdcDec, bflDec] = await Promise.all([
+          usdcContract.balanceOf(userAddress),
+          bflContract.balanceOf(userAddress),
+          getDecimals(ADDRESSES.USDC, readProvider),
+          getDecimals(ADDRESSES.BFL, readProvider)
+        ]);
+
+        const usdcFormatted = formatAmount(usdcBal, usdcDec);
+        const bflFormatted = formatAmount(bflBal, bflDec);
+
+        if ($("balanceUSDC")) $("balanceUSDC").textContent = usdcFormatted;
+        if ($("balanceBFL")) $("balanceBFL").textContent = bflFormatted;
+        if ($("fromBalance")) $("fromBalance").textContent = usdcFormatted;
+        if ($("toBalance")) $("toBalance").textContent = bflFormatted;
+
+        log("✓ Balances loaded", "info");
+      } catch (err) {
+        log("Balance load error: " + getWalletErrorMessage(err), "error");
+      }
+    }
+
+    /* ==========================
+       calculateOutput (uses pairCache)
+       ========================== */
+    function calculateOutput(amountIn, fromToken, toToken) {
+      if (!amountIn || amountIn <= 0) return 0n;
+      const fromAddr = getTokenAddress(fromToken).toLowerCase();
+      const toAddr = getTokenAddress(toToken).toLowerCase();
+      if (fromAddr === toAddr) return 0n;
+      if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) return 0n;
+
+      let reserveIn, reserveOut, decIn, decOut;
+      if (fromAddr === pairCache.token0) {
+        reserveIn = pairCache.reserve0;
+        reserveOut = pairCache.reserve1;
+        decIn = pairCache.dec0;
+        decOut = pairCache.dec1;
+      } else if (fromAddr === pairCache.token1) {
+        reserveIn = pairCache.reserve1;
+        reserveOut = pairCache.reserve0;
+        decIn = pairCache.dec1;
+        decOut = pairCache.dec0;
+      } else return 0n;
+
+      const amountInBig = parseAmount(amountIn, decIn);
+      const amountInWithFee = amountInBig * 997n;
+      const numerator = amountInWithFee * reserveOut;
+      const denominator = (reserveIn * 1000n) + amountInWithFee;
+      return numerator / denominator;
+    }
+
+    /* ==========================
+       Error mapping & detection
+       ========================== */
     const WALLET_ERROR_MESSAGES = {
       '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
       '4001': 'Transaction cancelled by the user.',
@@ -526,41 +807,6 @@ function updateWalletUI() {
       '4901': 'The provider is not connected to the requested chain. Please switch networks.',
       '-32603': 'Internal error. Please try again.',
     };
-
-    function dumpError(err) {
-      if (!err) return console.error("dumpError: no error object");
-      try {
-        console.error("=== ERROR DUMP START ===");
-        console.error("Error object:", err);
-        if (err?.reason) console.error("reason:", err.reason);
-        if (err?.message) console.error("message:", err.message);
-        if (err?.code) console.error("code:", err.code);
-        if (err?.data) console.error("data:", err.data);
-        if (err?.error) console.error("error:", err.error);
-        if (err?.body) console.error("body:", err.body);
-        if (typeof err?.body === "string") {
-          try { console.error("body json:", JSON.parse(err.body)); } catch(e){}
-        }
-        const maybeData = err?.data?.data || err?.error?.data || err?.data;
-        if (maybeData && typeof maybeData === "string" && maybeData.startsWith("0x")) {
-          try {
-            const toUtf8 = ethers.toUtf8String || (ethers.utils && ethers.utils.toUtf8String);
-            try {
-              console.error("decoded via toUtf8String:", toUtf8(maybeData));
-            } catch (e) {
-              try {
-                const payload = "0x" + maybeData.replace(/^0x/, "").slice(8);
-                console.error("decoded fallback:", toUtf8(payload));
-              } catch (e2) {}
-            }
-          } catch (e) {
-          }
-        }
-        console.error("=== ERROR DUMP END ===");
-      } catch (e) {
-        console.error("dumpError failed:", e);
-      }
-    }
 
     function isPendingRequest(err) {
       if (!err) return false;
@@ -589,143 +835,128 @@ function updateWalletUI() {
           if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
         }
       }
-      const raw = err?.message || err?.error?.message || err?.data?.message || JSON.stringify(err);
-      const msg = String(raw).toLowerCase();
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
       if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
         return WALLET_ERROR_MESSAGES['-32002'];
       }
       if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
       if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
-      return (WALLET_ERROR_MESSAGES['-32603'] || 'Internal error. Please try again.') + " — details: " + raw;
+      return err?.message || JSON.stringify(err);
     }
 
     /* ==========================
-       Pair reserves & price + chart
+       Tx guard and safer handlers
        ========================== */
-    let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
+    let txInProgress = false;
 
-    async function loadPairReserves() {
-      // ... unchanged ...
-    }
+    async function handleApprove() {
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+      if (txInProgress) { log("Another transaction is in progress — please wait", "warning"); return; }
 
-    function updatePairUI() {
-      // ... unchanged ...
-    }
+      const fromToken = $("fromToken").value;
+      const amountIn = $("amountIn").value;
+      if (!amountIn || parseFloat(amountIn) <= 0) { log("Enter amount to approve", "warning"); return; }
 
-    // Chart helpers
-    // ... unchanged ...
-
-    /* ==========================
-       Balance loading
-       ========================== */
-    async function loadBalances() {
-      if (!userAddress) {
-        log("Cannot load balances - no wallet connected", "warning");
-        return;
-      }
-
-      // Add loading skeleton to balance elements
-      const balanceElements = ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'];
-      balanceElements.forEach(id => {
-        const el = $(id);
-        if (el) {
-          el.classList.add('skeleton');
-          el.textContent = 'Loading...';
-        }
-      });
+      const approveBtn = $("approveBtn");
+      txInProgress = true;
+      if (approveBtn) { approveBtn.disabled = true; approveBtn.classList.add('loading'); }
 
       try {
-        log("Loading balances...", "debug");
-        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
-        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
+        log("Approving " + fromToken + "...", "info");
+        const tokenAddr = getTokenAddress(fromToken);
+        const decimals = await getDecimals(tokenAddr, readProvider);
+        const amount = parseAmount(amountIn, decimals);
+        const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
 
-        const [usdcBal, bflBal, usdcDec, bflDec] = await Promise.all([
-          usdcContract.balanceOf(userAddress),
-          bflContract.balanceOf(userAddress),
-          getDecimals(ADDRESSES.USDC, readProvider),
-          getDecimals(ADDRESSES.BFL, readProvider)
-        ]);
-
-        if ($("balanceUSDC")) $("balanceUSDC").textContent = formatAmount(BigInt(usdcBal.toString()), usdcDec);
-        if ($("balanceBFL")) $("balanceBFL").textContent = formatAmount(BigInt(bflBal.toString()), bflDec);
-        if ($("fromBalance")) $("fromBalance").textContent = formatAmount(BigInt(usdcBal.toString()), usdcDec);
-        if ($("toBalance")) $("toBalance").textContent = formatAmount(BigInt(bflBal.toString()), bflDec);
-
-        log("Balances loaded", "debug");
-      } catch (err) {
-        log("Balance load failed: " + (err?.message || err), "error");
-        dumpError(err);
-      } finally {
-        balanceElements.forEach(id => {
-          const el = $(id);
-          if (el) el.classList.remove('skeleton');
-        });
-      }
-    }
-
-    /* ==========================
-       Swap handler & helpers
-       ========================== */
-    async function handleSwap() {
-      const swapBtn = $("swapBtn");
-      if (swapBtn) { swapBtn.disabled = true; swapBtn.classList.add('loading'); }
-      let txInProgress = true;
-      try {
-        if (!signer || !userAddress) { log("Please connect wallet first", "warning"); throw new Error("no wallet"); }
-        // ... earlier code to compute amountInBig, minOut, toAddr, toToken, toDec, expectedOut, etc. ...
-
-        // 3) prepare swap amounts
-        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
-        let amount0Out = 0n, amount1Out = 0n;
-        
-        // Determine which output amount to use based on token order
-        const toAddrLower = toAddr.toLowerCase();
-        if (toAddrLower === pairCache.token0) {
-          amount0Out = minOut;
-        } else if (toAddrLower === pairCache.token1) {
-          amount1Out = minOut;
-        } else {
-          throw new Error("Token not in this pair");
-        }
-        
-        log(`Swap amounts: amount0Out=${amount0Out}, amount1Out=${amount1Out}`, "debug");
-
-        // 4) simulate swap via callStatic (detect revert reason)
+        let tx;
         try {
-          await pair.callStatic.swap(amount0Out, amount1Out, userAddress, "0x");
-          log("swap simulation successful (callStatic) — looks OK", "debug");
-        } catch (simErr) {
-          log("Swap simulation failed: " + getWalletErrorMessage(simErr), "error");
-          dumpError(simErr);
-          throw simErr;
-        }
-
-        // 5) estimate gas for swap (diagnostic)
-        try {
-          const gasEstimate = await pair.swap.estimateGas(amount0Out, amount1Out, userAddress, "0x");
-          log("swap.estimateGas => " + gasEstimate.toString(), "debug");
-        } catch (estErr) {
-          log("Swap gas estimate failed (diagnostic): " + getWalletErrorMessage(estErr), "warning");
-          dumpError(estErr);
-        }
-
-        // 6) send swap tx
-        let swapTx;
-        try {
-          swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
-          log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
-          await swapTx.wait();
-          log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+          tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
         } catch (err) {
-          log("Swap failed: " + getWalletErrorMessage(err), "error");
-          dumpError(err);
+          if (isPendingRequest(err)) {
+            log(getWalletErrorMessage(err), "warning");
+            throw err;
+          } else {
+            log(getWalletErrorMessage(err), "warning");
+            throw err;
+          }
+        }
+
+        log("Approval pending: " + tx.hash.slice(0,10) + "...", "debug");
+        await tx.wait();
+        log("✅ Approved " + amountIn + " " + fromToken, "info");
+      } catch (err) {
+        if (![ -32002, 4001 ].includes(err?.code)) log("Approval failed: " + getWalletErrorMessage(err), "error");
+        console.error(err);
+      } finally {
+        txInProgress = false;
+        if (approveBtn) { approveBtn.disabled = false; approveBtn.classList.remove('loading'); }
+      }
+    }
+
+    async function handleSwap() {
+      if (txInProgress) { log("Transaction already in progress — please wait", "warning"); return; }
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+
+      const swapBtn = $("swapBtn");
+      txInProgress = true;
+      if (swapBtn) { swapBtn.disabled = true; swapBtn.classList.add('loading'); }
+
+      try {
+        const fromToken = $("fromToken").value;
+        const toToken = $("toToken").value;
+        const amountIn = $("amountIn").value;
+        const slippage = parseFloat($("slippage").value) || 0.5;
+
+        if (!amountIn || parseFloat(amountIn) <= 0) { log("Enter swap amount", "warning"); return; }
+        if (fromToken === toToken) { log("Select different tokens", "warning"); return; }
+
+        log("Initiating swap: " + amountIn + " " + fromToken + " → " + toToken, "info");
+
+        const fromAddr = getTokenAddress(fromToken);
+        const toAddr = getTokenAddress(toToken);
+        const fromDec = await getDecimals(fromAddr, readProvider);
+        const toDec = await getDecimals(toAddr, readProvider);
+
+        const amountInBig = parseAmount(amountIn, fromDec);
+        const expectedOut = calculateOutput(amountIn, fromToken, toToken);
+        const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
+
+        log("Transferring " + fromToken + " to pair...", "debug");
+        const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
+
+        let transferTx;
+        try {
+          transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+        } catch (err) {
+          log(getWalletErrorMessage(err), "warning");
           throw err;
         }
 
-        await loadBalances();
-        await loadPairReserves();
+        log("Transfer submitted: " + transferTx.hash.slice(0,10) + "...", "debug");
+        await transferTx.wait();
+
+        log("Executing swap...", "debug");
+        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+
+        let amount0Out = 0n, amount1Out = 0n;
+        if (toAddr.toLowerCase() === pairCache.token0) amount0Out = minOut; else amount1Out = minOut;
+
+        let swapTx;
+        try {
+          swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
+        } catch (err) {
+          log(getWalletErrorMessage(err), "warning");
+          throw err;
+        }
+
+        log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
+        await swapTx.wait();
+
+        log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+        await loadBalances(); await loadPairReserves();
       } catch (err) {
-        console.error("handleSwap final catch:", err);
+        if (![ -32002, 4001 ].includes(err?.code)) log("Swap failed: " + getWalletErrorMessage(err), "error");
+        console.error(err);
       } finally {
         txInProgress = false;
         if (swapBtn) { swapBtn.disabled = false; swapBtn.classList.remove('loading'); }
@@ -733,9 +964,49 @@ function updateWalletUI() {
     }
 
     /* ==========================
-       Liquidity handlers
+       updateOutputEstimate
        ========================== */
-async function handleAddLiquidity() {
+    function updateOutputEstimate() {
+      const fromToken = $("fromToken")?.value;
+      const toToken = $("toToken")?.value;
+      const amountIn = $("amountIn")?.value;
+      if (!amountIn || parseFloat(amountIn) <= 0) {
+        if ($("amountOut")) $("amountOut").value = "";
+        return;
+      }
+      try {
+        const output = calculateOutput(amountIn, fromToken, toToken);
+        const toAddr = getTokenAddress(toToken);
+        const toDec = pairCache.token0 === toAddr.toLowerCase() ? pairCache.dec0 : pairCache.dec1;
+        if ($("amountOut")) $("amountOut").value = formatAmount(output, toDec);
+      } catch (error) {
+        console.error("Output estimate error:", error);
+      }
+    }
+
+    /* ==========================
+       Liquidity & mint
+       ========================== */
+    async function handleMintBFL() {
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+      const amount = $("mintBFLAmount")?.value;
+      if (!amount || parseFloat(amount) <= 0) { log("Enter amount to mint", "warning"); return; }
+      try {
+        log("Minting " + amount + " BFL...", "info");
+        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.BitcoinFlash, signer);
+        const decimals = await getDecimals(ADDRESSES.BFL, readProvider);
+        const amountBig = parseAmount(amount, decimals);
+        const tx = await bflContract.mint(userAddress, amountBig);
+        log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
+        await tx.wait();
+        log("Minted " + amount + " BFL", "info");
+        await loadBalances();
+      } catch (err) {
+        log("Mint failed: " + getWalletErrorMessage(err), "error");
+      }
+    }
+
+    async function handleAddLiquidity() {
       if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
       const usdcAmount = $("liquidityUSDC")?.value;
       const bflAmount = $("liquidityBFL")?.value;
@@ -764,27 +1035,83 @@ async function handleAddLiquidity() {
         if ($("liquidityBFL")) $("liquidityBFL").value = "";
       } catch (err) {
         log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
-        dumpError(err);
       }
     }
 
     /* ==========================
-       Rest of the app script (event listeners, UI helpers, etc.)
+       App init and events
        ========================== */
+    document.addEventListener("DOMContentLoaded", async () => {
+      log("Monad DEX initializing...", "info");
+      if ($("rpcUrl")) $("rpcUrl").textContent = "hidden";
+      if ($("rpcUrlTop")) $("rpcUrlTop").textContent = "hidden";
 
-    // ---- Example wiring (ensure these match your codebase) ----
-    document.addEventListener('DOMContentLoaded', () => {
-      try { updateTokenLogos(); initChart && initChart(); loadPairReserves && loadPairReserves(); } catch(e){}
-      const connectBtn = $("connectBtn");
-      if (connectBtn) connectBtn.onclick = connectWallet;
-      const swapBtn = $("swapBtn");
-      if (swapBtn) swapBtn.onclick = handleSwap;
-      const addLiquidityBtn = $("addLiquidityBtn");
-      if (addLiquidityBtn) addLiquidityBtn.onclick = handleAddLiquidity;
-      const refreshAllBtn = $("refreshAllBtn");
-      if (refreshAllBtn) refreshAllBtn.onclick = async () => { await loadBalances(); await loadPairReserves(); };
+      // IMPORTANT: do NOT use addEventListener('click', connectWallet) here.
+      // We rely on updateWalletUI() to set a single onclick handler so connect/disconnect can't both run.
+
+      // Events (attach named handlers or onclick via updateWalletUI)
+      if ($("approveBtn")) $("approveBtn").addEventListener("click", handleApprove);
+      if ($("swapBtn")) $("swapBtn").addEventListener("click", handleSwap);
+      if ($("mintBFLBtn")) $("mintBFLBtn").addEventListener("click", handleMintBFL);
+      if ($("addLiquidityBtn")) $("addLiquidityBtn").addEventListener("click", handleAddLiquidity);
+      if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", loadBalances);
+      if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
+      if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => { await Promise.all([loadBalances(), loadPairReserves()]); });
+
+      if ($("fromToken")) $("fromToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
+      if ($("toToken")) $("toToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
+      if ($("amountIn")) $("amountIn").addEventListener("input", updateOutputEstimate);
+
+      if ($("swapFlip")) $("swapFlip").addEventListener("click", () => {
+        const fromVal = $("fromToken").value; const toVal = $("toToken").value;
+        $("fromToken").value = toVal; $("toToken").value = fromVal;
+        updateTokenLogos(); updateOutputEstimate();
+      });
+
+      if ($("timeframe")) $("timeframe").addEventListener("change", (e) => {
+        currentTimeframe = e.target.value || "1m";
+        const candles = groupPricesByTimeframe(priceHistory, TIMEFRAMES[currentTimeframe]);
+        updateChart(candles);
+      });
+
+      // Ensure connect button has a single onclick handler set by updateWalletUI
+      updateTokenLogos();
+      initChart();
+
+      // Set initial wallet UI (connect button will be wired here)
+      updateWalletUI();
+
+      await loadPairReserves();
+
+      setInterval(async () => {
+        await loadPairReserves();
+        if (userAddress) await loadBalances();
+      }, CONFIG.POLL_MS);
+
+      log("App ready. Connect wallet to start trading.", "info");
+
+      // auto-connect if previously connected
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: "eth_accounts" });
+          if (accounts && accounts.length > 0) {
+            log("Auto-connecting to wallet...", "debug");
+            await connectWallet();
+          }
+        } catch {}
+      }
+
+      // demo gas pulse
+      (function neonPulseDemo(){
+        const gasEl = document.getElementById('gasTracker');
+        if(!gasEl) return;
+        let g = 6.2;
+        setInterval(() => {
+          g = Math.max(0.1, (g + (Math.random()-0.45)*0.8));
+          gasEl.querySelector('span:nth-child(2)').textContent = g.toFixed(2) + ' gwei';
+        }, 2200);
+      })();
     });
-
   </script>
 </body>
 </html>
