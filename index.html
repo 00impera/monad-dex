@@ -204,6 +204,46 @@
     .chrome-rim { border: 1px solid rgba(255,255,255,0.04); background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.002)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); border-radius: 10px; }
 
   :focus { outline: 3px solid rgba(0,230,255,0.06); outline-offset: 2px; }
+
+  /* Loading skeleton animations */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+    color: transparent !important;
+    pointer-events: none;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(5, 6, 10, 0.7);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    z-index: 10;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 230, 255, 0.1);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
   </style>
 <!-- Chart.js for the price chart -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -594,6 +634,12 @@ async function initWeb3Auth() {
   }
 }
     async function connectWallet() {
+      const btn = $("connectBtn");
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('loading');
+      }
+
       try {
         log("Connecting wallet...", "info");
         if (window.ethereum && !window.ethereum.isWeb3Auth) {
@@ -640,6 +686,12 @@ async function initWeb3Auth() {
         log("Connection error: " + err.message, "error");
         walletProvider = signer = userAddress = null;
         updateWalletUI();
+      } finally {
+        const btnFinal = $("connectBtn");
+        if (btnFinal) {
+          btnFinal.disabled = false;
+          btnFinal.classList.remove('loading');
+        }
       }
     }
 
@@ -703,6 +755,22 @@ async function initWeb3Auth() {
     let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
 
     async function loadPairReserves() {
+      // Add loading states
+      const reserveElements = ['pairToken0', 'pairToken1', 'pairReserve0', 'pairReserve1'];
+      reserveElements.forEach(id => {
+        const el = $(id);
+        if (el) {
+          el.classList.add('skeleton');
+          // keep existing text but mark as loading if empty
+          if (!el.textContent || el.textContent.trim() === '-') el.textContent = 'Loading...';
+        }
+      });
+      
+      if ($("priceDisplay")) {
+        $("priceDisplay").classList.add('skeleton');
+        $("priceDisplay").textContent = "Loading...";
+      }
+      
       try {
         const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, readProvider);
         const [token0, token1, reserves] = await Promise.all([pair.token0(), pair.token1(), pair.getReserves()]);
@@ -718,6 +786,13 @@ async function initWeb3Auth() {
         log("Pair reserves loaded", "debug");
       } catch (err) {
         log("Pair load error: " + (err?.message || err), "error");
+      } finally {
+        // Remove loading states
+        reserveElements.forEach(id => {
+          const el = $(id);
+          if (el) el.classList.remove('skeleton');
+        });
+        if ($("priceDisplay")) $("priceDisplay").classList.remove('skeleton');
       }
     }
 
@@ -824,6 +899,17 @@ async function initWeb3Auth() {
        ========================== */
     async function loadBalances() {
       if (!userAddress) return;
+      
+      // Add loading skeleton to balance elements
+      const balanceElements = ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'];
+      balanceElements.forEach(id => {
+        const el = $(id);
+        if (el) {
+          el.classList.add('skeleton');
+          el.textContent = 'Loading...';
+        }
+      });
+      
       try {
         log("Loading balances...", "debug");
         const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
@@ -847,6 +933,17 @@ async function initWeb3Auth() {
         log("✓ Balances loaded", "info");
       } catch (err) {
         log("Balance load error: " + getWalletErrorMessage(err), "error");
+        // Reset to dash on error
+        ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'].forEach(id => {
+          const el = $(id);
+          if (el) el.textContent = '-';
+        });
+      } finally {
+        // Remove skeleton loading
+        ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'].forEach(id => {
+          const el = $(id);
+          if (el) el.classList.remove('skeleton');
+        });
       }
     }
 
@@ -1136,9 +1233,27 @@ async function initWeb3Auth() {
       if ($("swapBtn")) $("swapBtn").addEventListener("click", handleSwap);
       if ($("mintBFLBtn")) $("mintBFLBtn").addEventListener("click", handleMintBFL);
       if ($("addLiquidityBtn")) $("addLiquidityBtn").addEventListener("click", handleAddLiquidity);
-      if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", loadBalances);
-      if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
-      if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => { await Promise.all([loadBalances(), loadPairReserves()]); });
+
+      if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", async () => {
+        const btn = $("refreshBalancesBtn");
+        if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+        await loadBalances();
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+      });
+
+      if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", async () => {
+        const btn = $("refreshReservesBtn");
+        if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+        await loadPairReserves();
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+      });
+
+      if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => {
+        const btn = $("refreshAllBtn");
+        if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+        await Promise.all([loadBalances(), loadPairReserves()]);
+        if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+      });
 
       if ($("fromToken")) $("fromToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
       if ($("toToken")) $("toToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
