@@ -633,9 +633,124 @@ async function initWeb3Auth() {
   }
 }
 
-    /* ==========================
-       Error helpers & diagnostics
-       ========================== */
+/* ==========================
+   Wallet connect/disconnect/UI
+   ========================== */
+async function connectWallet() {
+  const btn = $("connectBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('loading');
+  }
+
+  try {
+    log("Connecting wallet...", "info");
+    if (window.ethereum && !window.ethereum.isWeb3Auth) {
+      log("MetaMask detected, attempting connection...", "debug");
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        if (chainId !== "0x8F" && chainId !== "0x8f") {
+          log("Wrong network. Switching to Monad...", "warning");
+          try {
+            await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }] });
+            } else throw switchError;
+          }
+        }
+        walletProvider = new ethers.BrowserProvider(window.ethereum);
+        signer = await walletProvider.getSigner();
+        userAddress = await signer.getAddress();
+        log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+        updateWalletUI();
+        await loadBalances();
+        return;
+      } catch (mmError) {
+        log("MetaMask connection failed: " + mmError.message, "warning");
+        log("Falling back to Web3Auth...", "info");
+      }
+    }
+
+    log("Initializing Web3Auth login...", "info");
+    if (!web3auth) await initWeb3Auth();
+    if (!web3auth.connected) await web3auth.connect();
+    const web3authProvider = web3auth.provider;
+    if (!web3authProvider) throw new Error("Web3Auth provider null");
+    walletProvider = new ethers.BrowserProvider(web3authProvider);
+    signer = await walletProvider.getSigner();
+    userAddress = await signer.getAddress();
+    log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
+    updateWalletUI();
+    await loadBalances();
+  } catch (err) {
+    log("Connection error: " + err.message, "error");
+    dumpError(err);
+    walletProvider = signer = userAddress = null;
+    updateWalletUI();
+  } finally {
+    const btnFinal = $("connectBtn");
+    if (btnFinal) {
+      btnFinal.disabled = false;
+      btnFinal.classList.remove('loading');
+    }
+  }
+}
+
+async function disconnectWallet() {
+  try {
+    if (web3auth && web3auth.connected) {
+      await web3auth.logout();
+    }
+
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+
+    updateWalletUI();
+
+    ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => {
+      if ($(id)) $(id).textContent = "-";
+    });
+
+    log("Wallet disconnected", "info");
+  } catch (err) {
+    log("Disconnect error: " + err.message, "error");
+
+    walletProvider = null;
+    signer = null;
+    userAddress = null;
+    updateWalletUI();
+  }
+}
+
+function updateWalletUI() {
+  const display = $("walletDisplay"), btn = $("connectBtn");
+  if (!display || !btn) return;
+
+  btn.disabled = false;
+  btn.classList.remove("loading");
+
+  if (userAddress) {
+    display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+    btn.textContent = "● Connected";
+    btn.onclick = disconnectWallet;
+    btn.classList.remove("btn-primary", "btn-red");
+    btn.classList.add("btn-green");
+  } else {
+    display.textContent = "Not connected";
+    btn.textContent = "Connect Wallet";
+    btn.onclick = connectWallet;
+    btn.classList.remove("btn-ghost", "btn-green");
+    btn.classList.add("btn-red");
+  }
+}
+
+/* ==========================
+   Error helpers & diagnostics
+   ========================== */
     const WALLET_ERROR_MESSAGES = {
       '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
       '4001': 'Transaction cancelled by the user.',
@@ -662,20 +777,16 @@ async function initWeb3Auth() {
         const maybeData = err?.data?.data || err?.error?.data || err?.data;
         if (maybeData && typeof maybeData === "string" && maybeData.startsWith("0x")) {
           try {
-            // Try both ethers v6 and v5 unpack helpers
             const toUtf8 = ethers.toUtf8String || (ethers.utils && ethers.utils.toUtf8String);
-            // Many revert payloads contain the selector + encoded reason; try to decode entire hex payload to UTF8.
             try {
               console.error("decoded via toUtf8String:", toUtf8(maybeData));
             } catch (e) {
-              // fallback: strip selector and decode
               try {
                 const payload = "0x" + maybeData.replace(/^0x/, "").slice(8);
                 console.error("decoded fallback:", toUtf8(payload));
               } catch (e2) {}
             }
           } catch (e) {
-            // ignore decode errors
           }
         }
         console.error("=== ERROR DUMP END ===");
@@ -718,7 +829,6 @@ async function initWeb3Auth() {
       }
       if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
       if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
-      // For internal errors, return mapped message plus raw details to help debugging
       return (WALLET_ERROR_MESSAGES['-32603'] || 'Internal error. Please try again.') + " — details: " + raw;
     }
 
@@ -906,13 +1016,11 @@ async function initWeb3Auth() {
       } catch (err) {
         log("Balance load error: " + getWalletErrorMessage(err), "error");
         dumpError(err);
-        // Reset to dash on error
         ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'].forEach(id => {
           const el = $(id);
           if (el) el.textContent = '-';
         });
       } finally {
-        // Remove skeleton loading
         ['balanceUSDC', 'balanceBFL', 'fromBalance', 'toBalance'].forEach(id => {
           const el = $(id);
           if (el) el.classList.remove('skeleton');
