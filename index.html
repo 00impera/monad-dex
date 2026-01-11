@@ -155,6 +155,9 @@
 
     :focus { outline: 3px solid rgba(0,230,255,0.06); outline-offset: 2px; }
   </style>
+
+  <!-- Chart.js for the price chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -392,7 +395,6 @@
        Config, addresses, ABIs
        ========================== */
     const CONFIG = {
-      // Keep the RPC config for provider use but DO NOT expose it in the UI.
       ALCHEMY_RPC: "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk",
       CHAIN_ID: 143,
       POLL_MS: 15000,
@@ -601,14 +603,437 @@
     }
 
     /* ==========================
+       Pair reserves & price + chart
+       ========================== */
+    let pairCache = { token0: null, token1: null, reserve0: 0n, reserve1: 0n, dec0:18, dec1:18 };
+
+    async function loadPairReserves() {
+      try {
+        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, readProvider);
+        const [token0, token1, reserves] = await Promise.all([pair.token0(), pair.token1(), pair.getReserves()]);
+        const dec0 = await getDecimals(token0, readProvider);
+        const dec1 = await getDecimals(token1, readProvider);
+        pairCache = {
+          token0: token0.toLowerCase(), token1: token1.toLowerCase(),
+          reserve0: BigInt(reserves[0].toString()), reserve1: BigInt(reserves[1].toString()),
+          dec0, dec1
+        };
+        updatePairUI();
+        updatePrice();
+        log("Pair reserves loaded", "debug");
+      } catch (err) {
+        log("Pair load error: " + (err?.message || err), "error");
+      }
+    }
+
+    function updatePairUI() {
+      if ($("pairToken0")) $("pairToken0").textContent = pairCache.token0 || "-";
+      if ($("pairToken1")) $("pairToken1").textContent = pairCache.token1 || "-";
+      if ($("pairReserve0")) $("pairReserve0").textContent = formatAmount(pairCache.reserve0, pairCache.dec0);
+      if ($("pairReserve1")) $("pairReserve1").textContent = formatAmount(pairCache.reserve1, pairCache.dec1);
+    }
+
+    // Chart helpers
+    let priceChart = null;
+    const priceHistory = [];
+    const MAX_HISTORY = 240;
+    const TIMEFRAMES = { "1m": 60000, "5m": 300000, "15m": 900000, "1h": 3600000, "4h": 14400000, "1d": 86400000 };
+    let currentTimeframe = "1m";
+
+    function initChart() {
+      const ctx = document.getElementById('priceChartCanvas').getContext('2d');
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Price (USDC)',
+            data: [],
+            borderColor: '#00E6FF',
+            backgroundColor: 'rgba(0,230,255,0.06)',
+            pointRadius: 0,
+            tension: 0.18,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { display: true, ticks: { color: '#CFE8FF' } },
+            y: { display: true, ticks: { color: '#CFE8FF' }, beginAtZero: false }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: true }
+          }
+        }
+      });
+    }
+
+    function addPriceToHistory(price) {
+      const ts = Date.now();
+      priceHistory.push({ ts, price: Number(price) });
+      if (priceHistory.length > MAX_HISTORY) priceHistory.shift();
+      const candles = groupPricesByTimeframe(priceHistory, TIMEFRAMES[currentTimeframe]);
+      updateChart(candles);
+    }
+
+    function groupPricesByTimeframe(points, timeframeMs) {
+      if (!points.length) return [];
+      const buckets = {};
+      for (const p of points) {
+        const bucket = Math.floor(p.ts / timeframeMs) * timeframeMs;
+        if (!buckets[bucket]) buckets[bucket] = { open: p.price, high: p.price, low: p.price, close: p.price, ts: bucket };
+        else {
+          buckets[bucket].high = Math.max(buckets[bucket].high, p.price);
+          buckets[bucket].low = Math.min(buckets[bucket].low, p.price);
+          buckets[bucket].close = p.price;
+        }
+      }
+      return Object.values(buckets).sort((a,b) => a.ts - b.ts);
+    }
+
+    function updateChart(candles) {
+      if (!priceChart) return;
+      const labels = candles.map(c => new Date(c.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      const data = candles.map(c => Number(c.close.toFixed(6)));
+      priceChart.data.labels = labels;
+      priceChart.data.datasets[0].data = data;
+      priceChart.update('none');
+    }
+
+    function updatePrice() {
+      if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) {
+        if ($("priceDisplay")) $("priceDisplay").textContent = "price: n/a";
+        return;
+      }
+      const usdcAddr = ADDRESSES.USDC.toLowerCase();
+      let priceUSDC;
+      if (pairCache.token0 === usdcAddr) {
+        const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
+        const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
+        priceUSDC = r0 / r1;
+      } else {
+        const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
+        const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
+        priceUSDC = r1 / r0;
+      }
+      if ($("priceDisplay")) $("priceDisplay").textContent = `price: $${priceUSDC.toFixed(6)}`;
+      addPriceToHistory(priceUSDC);
+      return priceUSDC;
+    }
+
+    /* ==========================
+       Balance loading
+       ========================== */
+    async function loadBalances() {
+      if (!userAddress) return;
+      try {
+        log("Loading balances...", "debug");
+        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, readProvider);
+        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, readProvider);
+
+        const [usdcBal, bflBal, usdcDec, bflDec] = await Promise.all([
+          usdcContract.balanceOf(userAddress),
+          bflContract.balanceOf(userAddress),
+          getDecimals(ADDRESSES.USDC, readProvider),
+          getDecimals(ADDRESSES.BFL, readProvider)
+        ]);
+
+        const usdcFormatted = formatAmount(usdcBal, usdcDec);
+        const bflFormatted = formatAmount(bflBal, bflDec);
+
+        if ($("balanceUSDC")) $("balanceUSDC").textContent = usdcFormatted;
+        if ($("balanceBFL")) $("balanceBFL").textContent = bflFormatted;
+        if ($("fromBalance")) $("fromBalance").textContent = usdcFormatted;
+        if ($("toBalance")) $("toBalance").textContent = bflFormatted;
+
+        log("✓ Balances loaded", "info");
+      } catch (err) {
+        log("Balance load error: " + getWalletErrorMessage(err), "error");
+      }
+    }
+
+    /* ==========================
+       calculateOutput (uses pairCache)
+       ========================== */
+    function calculateOutput(amountIn, fromToken, toToken) {
+      if (!amountIn || amountIn <= 0) return 0n;
+      const fromAddr = getTokenAddress(fromToken).toLowerCase();
+      const toAddr = getTokenAddress(toToken).toLowerCase();
+      if (fromAddr === toAddr) return 0n;
+      if (pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) return 0n;
+
+      let reserveIn, reserveOut, decIn, decOut;
+      if (fromAddr === pairCache.token0) {
+        reserveIn = pairCache.reserve0;
+        reserveOut = pairCache.reserve1;
+        decIn = pairCache.dec0;
+        decOut = pairCache.dec1;
+      } else if (fromAddr === pairCache.token1) {
+        reserveIn = pairCache.reserve1;
+        reserveOut = pairCache.reserve0;
+        decIn = pairCache.dec1;
+        decOut = pairCache.dec0;
+      } else return 0n;
+
+      const amountInBig = parseAmount(amountIn, decIn);
+      const amountInWithFee = amountInBig * 997n;
+      const numerator = amountInWithFee * reserveOut;
+      const denominator = (reserveIn * 1000n) + amountInWithFee;
+      return numerator / denominator;
+    }
+
+    /* ==========================
+       Error mapping & detection
+       ========================== */
+    const WALLET_ERROR_MESSAGES = {
+      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
+      '4001': 'Transaction cancelled by the user.',
+      '4100': 'The requested account and/or method has not been authorized.',
+      '4900': 'The provider is disconnected. Please reconnect your wallet.',
+      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
+      '-32603': 'Internal error. Please try again.',
+    };
+
+    function isPendingRequest(err) {
+      if (!err) return false;
+      const candidates = [
+        err?.code,
+        err?.error?.code,
+        err?.data?.code,
+        err?.error?.data?.code,
+        err?.error?.error?.code
+      ];
+      for (const c of candidates) {
+        if (c === -32002 || String(c) === "-32002") return true;
+      }
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (!msg) return false;
+      if (msg.includes("already pending") || msg.includes("public_signtransaction") || (msg.includes("request of type") && msg.includes("already pending"))) return true;
+      return false;
+    }
+
+    function getWalletErrorMessage(err) {
+      if (!err) return 'Unknown error';
+      const nestedCodes = [ err?.code, err?.error?.code, err?.data?.code, err?.error?.data?.code ];
+      for (const c of nestedCodes) {
+        if (typeof c !== 'undefined' && c !== null) {
+          const key = String(c);
+          if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
+        }
+      }
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
+        return WALLET_ERROR_MESSAGES['-32002'];
+      }
+      if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
+      if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
+      return err?.message || JSON.stringify(err);
+    }
+
+    /* ==========================
+       Tx guard and safer handlers
+       ========================== */
+    let txInProgress = false;
+
+    async function handleApprove() {
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+      if (txInProgress) { log("Another transaction is in progress — please wait", "warning"); return; }
+
+      const fromToken = $("fromToken").value;
+      const amountIn = $("amountIn").value;
+      if (!amountIn || parseFloat(amountIn) <= 0) { log("Enter amount to approve", "warning"); return; }
+
+      const approveBtn = $("approveBtn");
+      txInProgress = true;
+      if (approveBtn) { approveBtn.disabled = true; approveBtn.classList.add('loading'); }
+
+      try {
+        log("Approving " + fromToken + "...", "info");
+        const tokenAddr = getTokenAddress(fromToken);
+        const decimals = await getDecimals(tokenAddr, readProvider);
+        const amount = parseAmount(amountIn, decimals);
+        const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, signer);
+
+        let tx;
+        try {
+          tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
+        } catch (err) {
+          if (isPendingRequest(err)) {
+            log(getWalletErrorMessage(err), "warning");
+            throw err;
+          } else {
+            log(getWalletErrorMessage(err), "warning");
+            throw err;
+          }
+        }
+
+        log("Approval pending: " + tx.hash.slice(0,10) + "...", "debug");
+        await tx.wait();
+        log("✅ Approved " + amountIn + " " + fromToken, "info");
+      } catch (err) {
+        if (![ -32002, 4001 ].includes(err?.code)) log("Approval failed: " + getWalletErrorMessage(err), "error");
+        console.error(err);
+      } finally {
+        txInProgress = false;
+        if (approveBtn) { approveBtn.disabled = false; approveBtn.classList.remove('loading'); }
+      }
+    }
+
+    async function handleSwap() {
+      if (txInProgress) { log("Transaction already in progress — please wait", "warning"); return; }
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+
+      const swapBtn = $("swapBtn");
+      txInProgress = true;
+      if (swapBtn) { swapBtn.disabled = true; swapBtn.classList.add('loading'); }
+
+      try {
+        const fromToken = $("fromToken").value;
+        const toToken = $("toToken").value;
+        const amountIn = $("amountIn").value;
+        const slippage = parseFloat($("slippage").value) || 0.5;
+
+        if (!amountIn || parseFloat(amountIn) <= 0) { log("Enter swap amount", "warning"); return; }
+        if (fromToken === toToken) { log("Select different tokens", "warning"); return; }
+
+        log("Initiating swap: " + amountIn + " " + fromToken + " → " + toToken, "info");
+
+        const fromAddr = getTokenAddress(fromToken);
+        const toAddr = getTokenAddress(toToken);
+        const fromDec = await getDecimals(fromAddr, readProvider);
+        const toDec = await getDecimals(toAddr, readProvider);
+
+        const amountInBig = parseAmount(amountIn, fromDec);
+        const expectedOut = calculateOutput(amountIn, fromToken, toToken);
+        const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
+
+        log("Transferring " + fromToken + " to pair...", "debug");
+        const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
+
+        let transferTx;
+        try {
+          transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+        } catch (err) {
+          log(getWalletErrorMessage(err), "warning");
+          throw err;
+        }
+
+        log("Transfer submitted: " + transferTx.hash.slice(0,10) + "...", "debug");
+        await transferTx.wait();
+
+        log("Executing swap...", "debug");
+        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+
+        let amount0Out = 0n, amount1Out = 0n;
+        if (toAddr.toLowerCase() === pairCache.token0) amount0Out = minOut; else amount1Out = minOut;
+
+        let swapTx;
+        try {
+          swapTx = await pair.swap(amount0Out, amount1Out, userAddress, "0x");
+        } catch (err) {
+          log(getWalletErrorMessage(err), "warning");
+          throw err;
+        }
+
+        log("Swap pending: " + swapTx.hash.slice(0,10) + "...", "debug");
+        await swapTx.wait();
+
+        log("Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+        await loadBalances(); await loadPairReserves();
+      } catch (err) {
+        if (![ -32002, 4001 ].includes(err?.code)) log("Swap failed: " + getWalletErrorMessage(err), "error");
+        console.error(err);
+      } finally {
+        txInProgress = false;
+        if (swapBtn) { swapBtn.disabled = false; swapBtn.classList.remove('loading'); }
+      }
+    }
+
+    /* ==========================
+       updateOutputEstimate
+       ========================== */
+    function updateOutputEstimate() {
+      const fromToken = $("fromToken")?.value;
+      const toToken = $("toToken")?.value;
+      const amountIn = $("amountIn")?.value;
+      if (!amountIn || parseFloat(amountIn) <= 0) {
+        if ($("amountOut")) $("amountOut").value = "";
+        return;
+      }
+      try {
+        const output = calculateOutput(amountIn, fromToken, toToken);
+        const toAddr = getTokenAddress(toToken);
+        const toDec = pairCache.token0 === toAddr.toLowerCase() ? pairCache.dec0 : pairCache.dec1;
+        if ($("amountOut")) $("amountOut").value = formatAmount(output, toDec);
+      } catch (error) {
+        console.error("Output estimate error:", error);
+      }
+    }
+
+    /* ==========================
+       Liquidity & mint
+       ========================== */
+    async function handleMintBFL() {
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+      const amount = $("mintBFLAmount")?.value;
+      if (!amount || parseFloat(amount) <= 0) { log("Enter amount to mint", "warning"); return; }
+      try {
+        log("Minting " + amount + " BFL...", "info");
+        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.BitcoinFlash, signer);
+        const decimals = await getDecimals(ADDRESSES.BFL, readProvider);
+        const amountBig = parseAmount(amount, decimals);
+        const tx = await bflContract.mint(userAddress, amountBig);
+        log("Mint pending: " + tx.hash.slice(0, 10) + "...", "debug");
+        await tx.wait();
+        log("Minted " + amount + " BFL", "info");
+        await loadBalances();
+      } catch (err) {
+        log("Mint failed: " + getWalletErrorMessage(err), "error");
+      }
+    }
+
+    async function handleAddLiquidity() {
+      if (!signer || !userAddress) { log("Please connect wallet first", "warning"); return; }
+      const usdcAmount = $("liquidityUSDC")?.value;
+      const bflAmount = $("liquidityBFL")?.value;
+      if (!usdcAmount || !bflAmount || parseFloat(usdcAmount) <= 0 || parseFloat(bflAmount) <= 0) { log("Enter both USDC and BFL amounts", "warning"); return; }
+      try {
+        log("Adding liquidity: " + usdcAmount + " USDC + " + bflAmount + " BFL", "info");
+        const usdcDec = await getDecimals(ADDRESSES.USDC, readProvider);
+        const bflDec = await getDecimals(ADDRESSES.BFL, readProvider);
+        const usdcBig = parseAmount(usdcAmount, usdcDec);
+        const bflBig = parseAmount(bflAmount, bflDec);
+        log("Transferring USDC to pair...", "debug");
+        const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
+        const usdcTx = await usdcContract.transfer(ADDRESSES.PAIR_USDC_BFL, usdcBig);
+        await usdcTx.wait();
+        log("Transferring BFL to pair...", "debug");
+        const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, signer);
+        const bflTx = await bflContract.transfer(ADDRESSES.PAIR_USDC_BFL, bflBig);
+        await bflTx.wait();
+        log("Minting LP tokens...", "debug");
+        const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.UniswapV2Pair, signer);
+        const mintTx = await pair.mint(userAddress);
+        await mintTx.wait();
+        log("Liquidity added successfully!", "info");
+        await loadBalances(); await loadPairReserves();
+        if ($("liquidityUSDC")) $("liquidityUSDC").value = "";
+        if ($("liquidityBFL")) $("liquidityBFL").value = "";
+      } catch (err) {
+        log("Add liquidity failed: " + getWalletErrorMessage(err), "error");
+      }
+    }
+
+    /* ==========================
        App init and events
        ========================== */
     document.addEventListener("DOMContentLoaded", async () => {
       log("Monad DEX initializing...", "info");
-
-      // Do NOT expose the full RPC URL in the UI.
-      // The elements showing RPC are intentionally left with "hidden" text in the DOM.
-      // We keep CONFIG.ALCHEMY_RPC for provider usage only.
+      if ($("rpcUrl")) $("rpcUrl").textContent = "hidden";
+      if ($("rpcUrlTop")) $("rpcUrlTop").textContent = "hidden";
 
       // Events
       if ($("connectBtn")) $("connectBtn").addEventListener("click", connectWallet);
