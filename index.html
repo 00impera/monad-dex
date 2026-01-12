@@ -3158,76 +3158,8 @@ function handleSwapFlip() {
 
 
   // Approve button
-  const approveBtn = document.getElementById("approveBtn");
-  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
-
-  // Swap flip button
-  const swapFlip = document.getElementById("swapFlip");
-  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
-
-  // Slippage input
-  const slippage = document.getElementById("slippageTolerance");
-  if (slippage) {
-    slippage.addEventListener("input", () => {
-      const slippageDisplay = document.getElementById("slippageDisplay");
-      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
-    });
-  }
-
-  // Refresh buttons
-  const refreshBalances = document.getElementById("refreshBalances");
-  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
-
-  const refreshPortfolio = document.getElementById("refreshPortfolio");
   if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
 
-  const refreshReserves = document.getElementById("refreshReserves");
-  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
-
-  // Timeframe buttons
-  document.querySelectorAll(".timeframe-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const timeframe = e.target.getAttribute("data-timeframe");
-      if (timeframe) changeTimeframe(timeframe);
-    });
-  });
-
-  // Pair buttons
-  document.querySelectorAll(".pair-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const pair = e.target.getAttribute("data-pair");
-      if (pair) {
-        const [from, to] = pair.split("-");
-        if (fromToken) fromToken.value = from;
-        if (toToken) toToken.value = to;
-        updateTokenLogos();
-        updateOutputEstimate();
-        log("Selected pair: " + from + "/" + to, "info");
-      }
-    });
-  });
-
-  const approveBtn = document.getElementById("approveBtn");
-  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
-
-  const swapFlip = document.getElementById("swapFlip");
-  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
-
-  const slippage = document.getElementById("slippageTolerance");
-  if (slippage) {
-    slippage.addEventListener("input", () => {
-      const slippageDisplay = document.getElementById("slippageDisplay");
-      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
-    });
-  }
-
-  const refreshBalances = document.getElementById("refreshBalances");
-  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
-
-  const refreshPortfolio = document.getElementById("refreshPortfolio");
-  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
-
-  const refreshReserves = document.getElementById("refreshReserves");
   if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
 
   document.querySelectorAll(".timeframe-btn").forEach(btn => {
@@ -3309,77 +3241,7 @@ function flipSwap() {
   // Update logos
 
   // Approve button
-  const approveBtn = document.getElementById("approveBtn");
-  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
 
-  // Swap flip button
-  const swapFlip = document.getElementById("swapFlip");
-  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
-
-  // Slippage input
-  const slippage = document.getElementById("slippageTolerance");
-  if (slippage) {
-    slippage.addEventListener("input", () => {
-      const slippageDisplay = document.getElementById("slippageDisplay");
-      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
-    });
-  }
-
-  // Refresh buttons
-  const refreshBalances = document.getElementById("refreshBalances");
-  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
-
-  const refreshPortfolio = document.getElementById("refreshPortfolio");
-  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
-
-  const refreshReserves = document.getElementById("refreshReserves");
-  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
-
-  // Timeframe buttons
-  document.querySelectorAll(".timeframe-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const timeframe = e.target.getAttribute("data-timeframe");
-      if (timeframe) changeTimeframe(timeframe);
-    });
-  });
-
-  // Pair buttons
-  document.querySelectorAll(".pair-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const pair = e.target.getAttribute("data-pair");
-      if (pair) {
-        const [from, to] = pair.split("-");
-        if (fromToken) fromToken.value = from;
-        if (toToken) toToken.value = to;
-        updateTokenLogos();
-        updateOutputEstimate();
-        log("Selected pair: " + from + "/" + to, "info");
-      }
-    });
-  });
-
-  const approveBtn = document.getElementById("approveBtn");
-  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
-
-  const swapFlip = document.getElementById("swapFlip");
-  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
-
-  const slippage = document.getElementById("slippageTolerance");
-  if (slippage) {
-    slippage.addEventListener("input", () => {
-      const slippageDisplay = document.getElementById("slippageDisplay");
-      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
-    });
-  }
-
-  const refreshBalances = document.getElementById("refreshBalances");
-  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
-
-  const refreshPortfolio = document.getElementById("refreshPortfolio");
-  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
-
-  const refreshReserves = document.getElementById("refreshReserves");
-  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
 
   document.querySelectorAll(".timeframe-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
@@ -3821,15 +3683,12 @@ function setupEventListeners() {
   }
 
   // Approve button
-  const approveBtn = document.getElementById("approveBtn");
   if (approveBtn) approveBtn.addEventListener("click", handleApprove);
 
   // Swap flip button
-  const swapFlip = document.getElementById("swapFlip");
   if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
 
   // Slippage input
-  const slippage = document.getElementById("slippageTolerance");
   if (slippage) {
     slippage.addEventListener("input", () => {
       const slippageDisplay = document.getElementById("slippageDisplay");
@@ -3838,14 +3697,9 @@ function setupEventListeners() {
   }
 
   // Refresh buttons
-  const refreshBalances = document.getElementById("refreshBalances");
   if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
 
-  const refreshPortfolio = document.getElementById("refreshPortfolio");
-  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
 
-  const refreshReserves = document.getElementById("refreshReserves");
-  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
 
   // Timeframe buttons
   document.querySelectorAll(".timeframe-btn").forEach(btn => {
@@ -3870,13 +3724,8 @@ function setupEventListeners() {
     });
   });
 
-  const approveBtn = document.getElementById("approveBtn");
-  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
 
-  const swapFlip = document.getElementById("swapFlip");
-  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
 
-  const slippage = document.getElementById("slippageTolerance");
   if (slippage) {
     slippage.addEventListener("input", () => {
       const slippageDisplay = document.getElementById("slippageDisplay");
@@ -3884,14 +3733,8 @@ function setupEventListeners() {
     });
   }
 
-  const refreshBalances = document.getElementById("refreshBalances");
-  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
 
-  const refreshPortfolio = document.getElementById("refreshPortfolio");
-  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
 
-  const refreshReserves = document.getElementById("refreshReserves");
-  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
 
   document.querySelectorAll(".timeframe-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
