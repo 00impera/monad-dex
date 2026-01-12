@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -3727,7 +3726,7 @@ function startPeriodicUpdates() {
 }
 
 // Load pair reserves with better error handling
-}
+
 
 // Update gas price
 async function updateGasPrice() {
@@ -3742,7 +3741,7 @@ async function updateGasPrice() {
       gasPriceEl.textContent = parseFloat(gasPrice).toFixed(2);
     }
   } catch (err) {
-    // Silently fail - RPC might not support this
+    console.error("Gas price update error:", err); // <-- Add this for debugging
   }
 }
 
@@ -3757,9 +3756,10 @@ async function updateChainStats() {
       blockNumberEl.textContent = blockNumber.toLocaleString();
     }
   } catch (err) {
-    // Silently fail
+    console.error("Chain stats update error:", err); // <-- Add this for debugging
   }
 }
+
 
 // Calculate swap output
 async function calculateSwapOutput() {
