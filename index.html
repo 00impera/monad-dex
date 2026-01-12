@@ -654,141 +654,52 @@
       return false;
     }
 
-    // connectWallet with guards and Web3Auth provider handling
-    async function connectWallet() {
-      if (isConnecting) { log("Connect already in progress...", "debug"); return; }
-      isConnecting = true;
-      const btn = $("connectBtn");
-      if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+    /* ==========================
+       Error helpers and wallet helpers
+       ========================== */
+    const WALLET_ERROR_MESSAGES = {
+      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
+      '4001': 'Transaction cancelled by the user.',
+      '4100': 'The requested account and/or method has not been authorized.',
+      '4900': 'The provider is disconnected. Please reconnect your wallet.',
+      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
+      '-32603': 'Internal error. Please try again.',
+    };
 
-      try {
-        log("Connecting wallet...", "info");
-
-        // Try injected provider (MetaMask) first
-        if (window.ethereum && !window.ethereum.isWeb3Auth) {
-          log("MetaMask detected, attempting connection...", "debug");
-          try {
-            // Ensure MetaMask has the correct RPC for Monad (force add/update to Alchemy).
-            // This helps replace bad temporary RPC URLs like twnodes session URLs.
-            try {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [{
-                  chainId: "0x8F",
-                  chainName: "Monad Mainnet",
-                  rpcUrls: [CONFIG.ALCHEMY_RPC],
-                  nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 },
-                  blockExplorerUrls: ["https://explorer.monad.xyz"]
-                }]
-              });
-              log("Requested MetaMask to use Alchemy RPC for Monad", "debug");
-            } catch (e) {
-              // wallet_addEthereumChain may be rejected or unsupported; continue
-              console.debug("wallet_addEthereumChain call failed/was rejected:", e);
-            }
-
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
-            const chainId = await window.ethereum.request({ method: "eth_chainId" });
-            if (chainId !== "0x8F" && chainId !== "0x8f") {
-              log("Wrong network. Attempting to switch to Monad (0x8F)...", "warning");
-              try {
-                await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
-              } catch (switchError) {
-                if (switchError?.code === 4902) {
-                  await window.ethereum.request({
-                    method: "wallet_addEthereumChain",
-                    params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }]
-                  });
-                } else {
-                  throw switchError;
-                }
-              }
-            }
-
-            // Create provider from injected wallet (MetaMask) after requesting network update.
-            walletProvider = new ethers.BrowserProvider(window.ethereum);
-            signer = await walletProvider.getSigner();
-            userAddress = await signer.getAddress();
-
-            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
-            updateWalletUI();
-            await loadBalances();
-            attachEthereumListeners();
-            return;
-          } catch (mmErr) {
-            log("MetaMask connection failed: " + (mmErr?.message || mmErr), "warning");
-            console.debug("MetaMask connect error", mmErr);
-            log("Falling back to Web3Auth...", "info");
-          }
-        }
-
-        // Fallback to Web3Auth
-        log("Initializing Web3Auth login...", "info");
-        if (!web3auth) await initWeb3Auth();
-
-        // web3auth.provider might be set already, or connect() may return a provider.
-        let web3authProvider = web3auth.provider;
-        if (!web3authProvider) {
-          const maybeProvider = await web3auth.connect().catch(e => { throw e; });
-          web3authProvider = maybeProvider || web3auth.provider;
-        }
-
-        if (!web3authProvider) throw new Error("Web3Auth provider null after connect()");
-
-        walletProvider = new ethers.BrowserProvider(web3authProvider);
-        signer = await walletProvider.getSigner();
-        userAddress = await signer.getAddress();
-
-        log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
-        updateWalletUI();
-        await loadBalances();
-
-      } catch (err) {
-        log("Connection error: " + (err?.message || err), "error");
-        console.error("connectWallet error:", err);
-        walletProvider = signer = userAddress = null;
-        updateWalletUI();
-      } finally {
-        isConnecting = false;
-        if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    function isPendingRequest(err) {
+      if (!err) return false;
+      const candidates = [
+        err?.code,
+        err?.error?.code,
+        err?.data?.code,
+        err?.error?.data?.code,
+        err?.error?.error?.code
+      ];
+      for (const c of candidates) {
+        if (c === -32002 || String(c) === "-32002") return true;
       }
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (!msg) return false;
+      if (msg.includes("already pending") || msg.includes("public_signtransaction") || (msg.includes("request of type") && msg.includes("already pending"))) return true;
+      return false;
     }
 
-    async function disconnectWallet() {
-      try {
-        if (web3auth && web3auth.connected) await web3auth.logout();
-        walletProvider = signer = userAddress = null;
-        updateWalletUI();
-        ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { if ($(id)) $(id).textContent = "-"; });
-        log("Wallet disconnected", "info");
-      } catch (err) {
-        log("Disconnect error: " + (err?.message || err), "error");
+    function getWalletErrorMessage(err) {
+      if (!err) return 'Unknown error';
+      const nestedCodes = [ err?.code, err?.error?.code, err?.data?.code, err?.error?.data?.code ];
+      for (const c of nestedCodes) {
+        if (typeof c !== 'undefined' && c !== null) {
+          const key = String(c);
+          if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
+        }
       }
-    }
-
-    function updateWalletUI() {
-      const display = $("walletDisplay"), btn = $("connectBtn");
-      if (!display || !btn) return;
-      btn.disabled = false;
-      btn.classList.remove("loading");
-
-      // ensure single handler
-      btn.onclick = null;
-
-      if (userAddress) {
-        display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
-        btn.textContent = "Disconnect";
-        btn.onclick = disconnectWallet;
-        btn.classList.remove("btn-primary");
-        btn.classList.add("btn-ghost");
-      } else {
-        display.textContent = "Not connected";
-        btn.textContent = "Connect Wallet";
-        btn.onclick = connectWallet;
-        btn.classList.remove("btn-ghost");
-        btn.classList.add("btn-primary");
+      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
+      if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
+        return WALLET_ERROR_MESSAGES['-32002'];
       }
+      if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
+      if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
+      return err?.message || JSON.stringify(err);
     }
 
     /* ==========================
@@ -1007,51 +918,6 @@
       }
     }
 
-    const WALLET_ERROR_MESSAGES = {
-      '-32002': '⚠️ You already have a pending wallet request. Please check your wallet and confirm or reject it first.',
-      '4001': 'Transaction cancelled by the user.',
-      '4100': 'The requested account and/or method has not been authorized.',
-      '4900': 'The provider is disconnected. Please reconnect your wallet.',
-      '4901': 'The provider is not connected to the requested chain. Please switch networks.',
-      '-32603': 'Internal error. Please try again.',
-    };
-
-    function isPendingRequest(err) {
-      if (!err) return false;
-      const candidates = [
-        err?.code,
-        err?.error?.code,
-        err?.data?.code,
-        err?.error?.data?.code,
-        err?.error?.error?.code
-      ];
-      for (const c of candidates) {
-        if (c === -32002 || String(c) === "-32002") return true;
-      }
-      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
-      if (!msg) return false;
-      if (msg.includes("already pending") || msg.includes("public_signtransaction") || (msg.includes("request of type") && msg.includes("already pending"))) return true;
-      return false;
-    }
-
-    function getWalletErrorMessage(err) {
-      if (!err) return 'Unknown error';
-      const nestedCodes = [ err?.code, err?.error?.code, err?.data?.code, err?.error?.data?.code ];
-      for (const c of nestedCodes) {
-        if (typeof c !== 'undefined' && c !== null) {
-          const key = String(c);
-          if (WALLET_ERROR_MESSAGES[key]) return WALLET_ERROR_MESSAGES[key];
-        }
-      }
-      const msg = String(err?.message || err?.error?.message || err?.data?.message || "").toLowerCase();
-      if (msg.includes('already pending') || msg.includes('-32002') || msg.includes('public_signtransaction')) {
-        return WALLET_ERROR_MESSAGES['-32002'];
-      }
-      if (msg.includes('user rejected') || msg.includes('rejected') || msg.includes('cancel')) return WALLET_ERROR_MESSAGES['4001'] || 'Transaction cancelled by user';
-      if (msg.includes('insufficient funds')) return 'Insufficient funds for gas + transaction amount';
-      return err?.message || JSON.stringify(err);
-    }
-
     let txInProgress = false;
 
     async function handleApprove() {
@@ -1189,56 +1055,208 @@
     /* ==========================
        App init and events (fixed wiring)
        ========================== */
+    async function connectWallet() {
+      if (isConnecting) { log("Connect already in progress...", "debug"); return; }
+      isConnecting = true;
+      const btn = $("connectBtn");
+      if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+
+      try {
+        log("Connecting wallet...", "info");
+
+        // Try injected provider (MetaMask) first
+        if (window.ethereum && !window.ethereum.isWeb3Auth) {
+          log("MetaMask detected, attempting connection...", "debug");
+          try {
+            // Ask MetaMask to ensure the Alchemy RPC is configured for Monad (helps replace bad twnodes sessions)
+            try {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: "0x8F",
+                  chainName: "Monad Mainnet",
+                  rpcUrls: [CONFIG.ALCHEMY_RPC],
+                  nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 },
+                  blockExplorerUrls: ["https://explorer.monad.xyz"]
+                }]
+              });
+              log("Requested MetaMask to use Alchemy RPC for Monad", "debug");
+            } catch (e) {
+              console.debug("wallet_addEthereumChain call failed/was rejected:", e);
+            }
+
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
+            const chainId = await window.ethereum.request({ method: "eth_chainId" });
+            if (chainId !== "0x8F" && chainId !== "0x8f") {
+              log("Wrong network. Attempting to switch to Monad (0x8F)...", "warning");
+              try {
+                await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
+              } catch (switchError) {
+                if (switchError?.code === 4902) {
+                  await window.ethereum.request({
+                    method: "wallet_addEthereumChain",
+                    params: [{ chainId: "0x8F", chainName: "Monad Mainnet", rpcUrls: [CONFIG.ALCHEMY_RPC], nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 }, blockExplorerUrls: ["https://explorer.monad.xyz"] }]
+                  });
+                } else {
+                  throw switchError;
+                }
+              }
+            }
+
+            walletProvider = new ethers.BrowserProvider(window.ethereum);
+            signer = await walletProvider.getSigner();
+            userAddress = await signer.getAddress();
+
+            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+            updateWalletUI();
+            await loadBalances();
+            attachEthereumListeners();
+            return;
+          } catch (mmErr) {
+            log("MetaMask connection failed: " + (mmErr?.message || mmErr), "warning");
+            console.debug("MetaMask connect error", mmErr);
+            log("Falling back to Web3Auth...", "info");
+          }
+        }
+
+        // Fallback to Web3Auth
+        log("Initializing Web3Auth login...", "info");
+        if (!web3auth) await initWeb3Auth();
+
+        let web3authProvider = web3auth.provider;
+        if (!web3authProvider) {
+          const maybeProvider = await web3auth.connect().catch(e => { throw e; });
+          web3authProvider = maybeProvider || web3auth.provider;
+        }
+
+        if (!web3authProvider) throw new Error("Web3Auth provider null after connect()");
+
+        walletProvider = new ethers.BrowserProvider(web3authProvider);
+        signer = await walletProvider.getSigner();
+        userAddress = await signer.getAddress();
+
+        log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
+        updateWalletUI();
+        await loadBalances();
+
+      } catch (err) {
+        log("Connection error: " + (err?.message || err), "error");
+        console.error("connectWallet error:", err);
+        walletProvider = signer = userAddress = null;
+        updateWalletUI();
+      } finally {
+        isConnecting = false;
+        if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+      }
+    }
+
+    async function disconnectWallet() {
+      try {
+        if (web3auth && web3auth.connected) await web3auth.logout();
+        walletProvider = signer = userAddress = null;
+        updateWalletUI();
+        ["balanceUSDC","balanceBFL","fromBalance","toBalance"].forEach(id => { if ($(id)) $(id).textContent = "-"; });
+        log("Wallet disconnected", "info");
+      } catch (err) {
+        log("Disconnect error: " + (err?.message || err), "error");
+      }
+    }
+
+    function updateWalletUI() {
+      const display = $("walletDisplay"), btn = $("connectBtn");
+      if (!display || !btn) return;
+      btn.disabled = false;
+      btn.classList.remove("loading");
+
+      btn.onclick = null;
+
+      if (userAddress) {
+        display.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
+        btn.textContent = "Disconnect";
+        btn.onclick = disconnectWallet;
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-ghost");
+      } else {
+        display.textContent = "Not connected";
+        btn.textContent = "Connect Wallet";
+        btn.onclick = connectWallet;
+        btn.classList.remove("btn-ghost");
+        btn.classList.add("btn-primary");
+      }
+    }
+
+    /* ==========================
+       DOM wiring + init
+       ========================== */
     document.addEventListener("DOMContentLoaded", async () => {
       log("Monad DEX initializing...", "info");
       if ($("rpcUrl")) $("rpcUrl").textContent = "hidden";
       if ($("rpcUrlTop")) $("rpcUrlTop").textContent = "hidden";
 
-      // --- Event wiring (robust, avoids undefined handler errors) ---
-
-      // Connect / Disconnect (attach reliable listener)
+      // wire buttons once
       if ($("connectBtn") && !$("connectBtn").dataset.listenerAttached) {
         $("connectBtn").dataset.listenerAttached = "1";
-        $("connectBtn").addEventListener("click", async (e) => {
-          try {
-            if (userAddress) {
-              if (typeof disconnectWallet === "function") await disconnectWallet();
-              else log("disconnectWallet not defined", "error");
-            } else {
-              if (typeof connectWallet === "function") await connectWallet();
-              else log("connectWallet not defined", "error");
-            }
-          } catch (err) {
-            console.error("connectBtn handler error:", err);
-            log("Connection handler error: " + (err?.message || err), "error");
+        $("connectBtn").addEventListener("click", async () => {
+          if (userAddress) await disconnectWallet(); else await connectWallet();
+        });
+      }
+      if ($("approveBtn")) $("approveBtn").addEventListener("click", handleApprove);
+      if ($("swapBtn")) $("swapBtn").addEventListener("click", handleSwap);
+      if ($("mintBFLBtn")) $("mintBFLBtn").addEventListener("click", handleMintBFL);
+      if ($("addLiquidityBtn")) $("addLiquidityBtn").addEventListener("click", handleAddLiquidity);
+      if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", loadBalances);
+      if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
+      if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => { await Promise.all([loadBalances(), loadPairReserves()]); });
+
+      if ($("fromToken")) $("fromToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
+      if ($("toToken")) $("toToken").addEventListener("change", () => { updateTokenLogos(); updateOutputEstimate(); });
+      if ($("amountIn")) $("amountIn").addEventListener("input", updateOutputEstimate);
+      if ($("swapFlip")) $("swapFlip").addEventListener("click", () => {
+        const fromVal = $("fromToken").value; const toVal = $("toToken").value;
+        $("fromToken").value = toVal; $("toToken").value = fromVal;
+        updateTokenLogos(); updateOutputEstimate();
+      });
+      if ($("timeframe")) $("timeframe").addEventListener("change", (e) => {
+        currentTimeframe = e.target.value || "1m";
+        const candles = groupPricesByTimeframe(priceHistory, TIMEFRAMES[currentTimeframe]);
+        updateChart(candles);
+      });
+
+      updateTokenLogos();
+      initChart();
+      updateWalletUI();
+      await loadPairReserves();
+
+      setInterval(async () => {
+        await loadPairReserves();
+        if (userAddress) await loadBalances();
+      }, CONFIG.POLL_MS);
+
+      log("App ready. Connect wallet to start trading.", "info");
+
+      // auto-connect if previously connected
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: "eth_accounts" });
+          if (accounts && accounts.length > 0) {
+            log("Auto-connecting to wallet...", "debug");
+            await connectWallet();
           }
-        });
+        } catch {}
       }
 
-      // Approve
-      if ($("approveBtn")) {
-        $("approveBtn").addEventListener("click", async (e) => {
-          if (typeof handleApprove === "function") await handleApprove(e);
-          else log("handleApprove not defined", "error");
-        });
-      }
-
-      // Swap
-      if ($("swapBtn")) {
-        $("swapBtn").addEventListener("click", async (e) => {
-          if (typeof handleSwap === "function") await handleSwap(e);
-          else log("handleSwap not defined", "error");
-        });
-      }
-
-      // Mint BFL (safe wrapper)
-      if ($("mintBFLBtn")) {
-        $("mintBFLBtn").addEventListener("click", async (e) => {
-          if (typeof handleMintBFL === "function") await handleMintBFL(e);
-          else log("handleMintBFL not defined", "error");
-        });
-      }
-
-      // Add liquidity (safe wrapper)
-      if ($("addLiquidityBtn")) {
-        $("addLiquidityBtn").addEventListener("click"
+      // demo gas pulse
+      (function neonPulseDemo(){
+        const gasEl = document.getElementById('gasTracker');
+        if(!gasEl) return;
+        let g = 6.2;
+        setInterval(() => {
+          g = Math.max(0.1, (g + (Math.random()-0.45)*0.8));
+          gasEl.querySelector('span:nth-child(2)').textContent = g.toFixed(2) + ' gwei';
+        }, 2200);
+      })();
+    });
+  </script>
+</body>
+</html>
