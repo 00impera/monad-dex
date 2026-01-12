@@ -90,7 +90,6 @@
     .btn:hover { transform: translateY(-2px); }
     .btn:active { transform: translateY(0); }
 
-    /* disabled and loading visuals */
     .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
     .btn.loading { color: transparent; position: relative; pointer-events: none; }
     .btn.loading::after {
@@ -1053,7 +1052,7 @@
     }
 
     /* ==========================
-       App init and events (fixed wiring)
+       Replaced connectWallet (enhanced diagnostics + robust flow)
        ========================== */
     async function connectWallet() {
       if (isConnecting) { log("Connect already in progress...", "debug"); return; }
@@ -1061,14 +1060,17 @@
       const btn = $("connectBtn");
       if (btn) { btn.disabled = true; btn.classList.add("loading"); }
 
+      function diag(...args){ console.debug("[connectWallet diag]", ...args); }
+
       try {
         log("Connecting wallet...", "info");
+        diag("window.ethereum:", !!window.ethereum, window.ethereum && { isMetaMask: window.ethereum.isMetaMask });
 
-        // Try injected provider (MetaMask) first
+        // If provider missing, fallback to Web3Auth later
         if (window.ethereum && !window.ethereum.isWeb3Auth) {
           log("MetaMask detected, attempting connection...", "debug");
           try {
-            // Ask MetaMask to ensure the Alchemy RPC is configured for Monad (helps replace bad twnodes sessions)
+            // Attempt to set/or suggest correct network RPC (non-blocking)
             try {
               await window.ethereum.request({
                 method: "wallet_addEthereumChain",
@@ -1080,19 +1082,25 @@
                   blockExplorerUrls: ["https://explorer.monad.xyz"]
                 }]
               });
-              log("Requested MetaMask to use Alchemy RPC for Monad", "debug");
-            } catch (e) {
-              console.debug("wallet_addEthereumChain call failed/was rejected:", e);
+              diag("wallet_addEthereumChain request submitted");
+            } catch (addErr) {
+              diag("wallet_addEthereumChain result:", addErr);
             }
 
-            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
-            const chainId = await window.ethereum.request({ method: "eth_chainId" });
-            if (chainId !== "0x8F" && chainId !== "0x8f") {
+            // Request accounts (this MUST show a MetaMask popup)
+            const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }).catch(e => { throw e; });
+            diag("eth_requestAccounts ->", accounts);
+            if (!accounts || accounts.length === 0) throw new Error("No accounts returned from wallet");
+
+            // Confirm chainId after user accepts
+            const chainId = await window.ethereum.request({ method: "eth_chainId" }).catch(e => { diag("eth_chainId error", e); return null; });
+            diag("chainId after request:", chainId);
+            if (chainId && chainId !== "0x8F" && chainId !== "0x8f") {
               log("Wrong network. Attempting to switch to Monad (0x8F)...", "warning");
               try {
                 await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x8F" }] });
               } catch (switchError) {
+                diag("wallet_switchEthereumChain error:", switchError);
                 if (switchError?.code === 4902) {
                   await window.ethereum.request({
                     method: "wallet_addEthereumChain",
@@ -1104,45 +1112,42 @@
               }
             }
 
+            // Use injected provider for reads/writes
             walletProvider = new ethers.BrowserProvider(window.ethereum);
             signer = await walletProvider.getSigner();
-            userAddress = await signer.getAddress();
+            try { userAddress = await signer.getAddress(); } catch (e) { diag("getAddress failed:", e); userAddress = accounts[0]; }
 
-            log("✓ Connected via MetaMask: " + userAddress.slice(0, 8) + "...", "info");
+            log("✓ Connected via MetaMask: " + (userAddress ? userAddress.slice(0,8) + "..." : "unknown"), "info");
             updateWalletUI();
+            await preferInjectedSignerIfAvailable(); // ensure signer/provider are set
             await loadBalances();
             attachEthereumListeners();
             return;
           } catch (mmErr) {
+            diag("MetaMask branch error:", mmErr);
             log("MetaMask connection failed: " + (mmErr?.message || mmErr), "warning");
-            console.debug("MetaMask connect error", mmErr);
-            log("Falling back to Web3Auth...", "info");
+            // fall through to Web3Auth
           }
         }
 
         // Fallback to Web3Auth
-        log("Initializing Web3Auth login...", "info");
+        log("Using Web3Auth fallback...", "info");
         if (!web3auth) await initWeb3Auth();
-
         let web3authProvider = web3auth.provider;
         if (!web3authProvider) {
           const maybeProvider = await web3auth.connect().catch(e => { throw e; });
           web3authProvider = maybeProvider || web3auth.provider;
         }
-
         if (!web3authProvider) throw new Error("Web3Auth provider null after connect()");
-
         walletProvider = new ethers.BrowserProvider(web3authProvider);
         signer = await walletProvider.getSigner();
         userAddress = await signer.getAddress();
-
         log("✓ Connected via Web3Auth: " + userAddress.slice(0, 8) + "...", "info");
         updateWalletUI();
         await loadBalances();
-
       } catch (err) {
         log("Connection error: " + (err?.message || err), "error");
-        console.error("connectWallet error:", err);
+        console.error("connectWallet error (detailed):", err);
         walletProvider = signer = userAddress = null;
         updateWalletUI();
       } finally {
