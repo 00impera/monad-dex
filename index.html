@@ -2445,11 +2445,11 @@ label {
         return upperSymbol;
       }
 
-      if (CONFIG.TOKENS && CONFIG.TOKENS[upperSymbol]) {
-        return CONFIG.TOKENS[upperSymbol];
+      if (TOKENS_MAP && TOKENS_MAP[upperSymbol]) {
+        return TOKENS_MAP[upperSymbol];
       }
 
-      return null;
+      return ADDRESSES[upperSymbol] || null;
     }
 
     /* ========================================================== */
@@ -2468,6 +2468,14 @@ const ADDRESSES = {
   PAIR_USDC_BFL: "0x57489a99059a41464fe9322864e3b241d96c5d62"
 
 };
+
+const TOKENS_MAP = {
+  "USDC": ADDRESSES.USDC,
+  "BFL": ADDRESSES.BFL,
+  "MDX": ADDRESSES.MDX
+};
+
+CONFIG.TOKENS = TOKENS_MAP;
 
 // Alias for backward compatibility
 ADDRESSES.PAIR = ADDRESSES.PAIR_USDC_BFL;
@@ -2883,35 +2891,40 @@ function updatePrice() {
 function calculateOutput(amountIn, fromToken, toToken) {
   if (!amountIn || Number(amountIn) <= 0) return 0n;
 
-  const fromAddr = getTokenAddress(fromToken).toLowerCase();
-  const toAddr = getTokenAddress(toToken).toLowerCase();
+  const fromAddr = getTokenAddress(fromToken);
+  const toAddr = getTokenAddress(toToken);
 
-  if (fromAddr === toAddr) return 0n;
+  if (!fromAddr || !toAddr) {
+    console.warn("Token address not found:", fromToken, toToken);
+    return 0n;
+  }
+
+  if (fromAddr.toLowerCase() === toAddr.toLowerCase()) return 0n;
 
   if (!pairCache.token0 || pairCache.reserve0 === 0n || pairCache.reserve1 === 0n) {
     return 0n;
   }
 
   let reserveIn, reserveOut, decIn, decOut;
+  const fromAddrLower = fromAddr.toLowerCase();
+  const toAddrLower = toAddr.toLowerCase();
 
-  if (fromAddr === pairCache.token0) {
+  if (fromAddrLower === pairCache.token0) {
     reserveIn = pairCache.reserve0;
     reserveOut = pairCache.reserve1;
     decIn = pairCache.dec0;
     decOut = pairCache.dec1;
-  } else if (fromAddr === pairCache.token1) {
+  } else if (fromAddrLower === pairCache.token1) {
     reserveIn = pairCache.reserve1;
     reserveOut = pairCache.reserve0;
     decIn = pairCache.dec1;
     decOut = pairCache.dec0;
   } else {
+    console.warn("Token not in pair:", fromToken);
     return 0n;
   }
 
-  // Parse input amount to wei
   const amountInBig = parseAmount(amountIn, decIn);
-
-  // Uniswap V2 formula with 0.3% fee (997/1000)
   const amountInWithFee = amountInBig * 997n;
   const numerator = amountInWithFee * reserveOut;
   const denominator = (reserveIn * 1000n) + amountInWithFee;
@@ -2940,15 +2953,22 @@ function updateOutputEstimate() {
       return;
     }
 
-    const toAddr = getTokenAddress(toToken).toLowerCase();
-    const toDec = (pairCache.token0 === toAddr ? pairCache.dec0 :
-                   (pairCache.token1 === toAddr ? pairCache.dec1 : 18));
+    const toAddr = getTokenAddress(toToken);
+    if (!toAddr) {
+      if ($("toAmount")) $("toAmount").value = "";
+      return;
+    }
+
+    const toAddrLower = toAddr.toLowerCase();
+    const toDec = (pairCache.token0 === toAddrLower ? pairCache.dec0 :
+                   (pairCache.token1 === toAddrLower ? pairCache.dec1 : 18));
 
     if ($("toAmount")) {
       $("toAmount").value = formatAmount(output, toDec);
     }
   } catch (err) {
     console.error("updateOutputEstimate error:", err);
+    if ($("toAmount")) $("toAmount").value = "";
   }
 }
 
@@ -3147,6 +3167,8 @@ async function handleSwap() {
 function handleSwapFlip() {
   const fromTokenEl = $("fromToken");
   const toTokenEl = $("toToken");
+  const fromAmountEl = $("fromAmount");
+  const toAmountEl = $("toAmount");
 
   if (!fromTokenEl || !toTokenEl) return;
 
@@ -3156,33 +3178,12 @@ function handleSwapFlip() {
   fromTokenEl.value = toVal;
   toTokenEl.value = fromVal;
 
-
-  // Approve button
-  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
-
-  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
-
-  document.querySelectorAll(".timeframe-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const tf = e.target.getAttribute("data-timeframe");
-      if (tf) changeTimeframe(tf);
-    });
-  });
-
-  document.querySelectorAll(".pair-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const pair = e.target.getAttribute("data-pair");
-      if (pair) {
-        const [from, to] = pair.split("-");
-        if (fromToken) fromToken.value = from;
-        if (toToken) toToken.value = to;
-        updateTokenLogos();
-        updateOutputEstimate();
-      }
-    });
-  });
   updateTokenLogos();
-  updateOutputEstimate();
+
+  if (fromAmountEl) fromAmountEl.value = "";
+  if (toAmountEl) toAmountEl.value = "";
+
+  if (isWalletConnected()) loadBalances();
 
   log("Swapped token direction", "debug");
 }
@@ -3227,51 +3228,6 @@ async function refreshAll() {
 /* ==================
    FLIP SWAP TOKENS
    ================== */
-function flipSwap() {
-  const fromToken = document.getElementById('fromToken');
-  const toToken = document.getElementById('toToken');
-
-  if (!fromToken || !toToken) return;
-
-  // Swap the values
-  const temp = fromToken.value;
-  fromToken.value = toToken.value;
-  toToken.value = temp;
-
-  // Update logos
-
-  // Approve button
-
-
-  document.querySelectorAll(".timeframe-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const tf = e.target.getAttribute("data-timeframe");
-      if (tf) changeTimeframe(tf);
-    });
-  });
-
-  document.querySelectorAll(".pair-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const pair = e.target.getAttribute("data-pair");
-      if (pair) {
-        const [from, to] = pair.split("-");
-        if (fromToken) fromToken.value = from;
-        if (toToken) toToken.value = to;
-        updateTokenLogos();
-        updateOutputEstimate();
-      }
-    });
-  });
-  updateTokenLogos();
-
-  // Clear amounts
-  const fromAmount = document.getElementById('fromAmount');
-  const toAmount = document.getElementById('toAmount');
-  if (fromAmount) fromAmount.value = '';
-  if (toAmount) toAmount.value = '';
-
-  log('🔄 Swapped token direction');
-}
 /* ==================
    EXPORT FUNCTIONS
    ================== */
@@ -3518,10 +3474,10 @@ function changeTimeframe(timeframe) {
   currentTimeframe = timeframe;
 
   // Update button states
-  document.querySelectorAll('.timeframe-btn').forEach(btn => {
-    btn.classList.remove('active');
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.classList.remove("active");
   });
-  document.querySelector(`[data-timeframe="${timeframe}"]`)?.classList.add('active');
+  document.querySelector(`[data-timeframe="${timeframe}"]`)?.classList.add("active");
 
   // Regenerate data
   generateMockData(timeframe);
@@ -3683,29 +3639,20 @@ function setupEventListeners() {
   }
 
   // Approve button
+  const approveBtn = $("approveBtn");
   if (approveBtn) approveBtn.addEventListener("click", handleApprove);
 
   // Swap flip button
-  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
-
-  // Slippage input
-  if (slippage) {
-    slippage.addEventListener("input", () => {
-      const slippageDisplay = document.getElementById("slippageDisplay");
-      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
-    });
+  const swapFlip = $("swapFlip");
+  if (swapFlip) {
+    swapFlip.addEventListener("click", handleSwapFlip);
   }
-
-  // Refresh buttons
-  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
-
-
 
   // Timeframe buttons
   document.querySelectorAll(".timeframe-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
-      const timeframe = e.target.getAttribute("data-timeframe");
-      if (timeframe) changeTimeframe(timeframe);
+      const tf = e.target.getAttribute("data-timeframe");
+      if (tf) changeTimeframe(tf);
     });
   });
 
@@ -3719,43 +3666,47 @@ function setupEventListeners() {
         if (toToken) toToken.value = to;
         updateTokenLogos();
         updateOutputEstimate();
-        log("Selected pair: " + from + "/" + to, "info");
       }
     });
   });
 
-
-
-  if (slippage) {
-    slippage.addEventListener("input", () => {
-      const slippageDisplay = document.getElementById("slippageDisplay");
-      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+  // Slippage input
+  const slippageTolerance = $("slippageTolerance");
+  const slippageDisplay = $("slippageDisplay");
+  if (slippageTolerance) {
+    slippageTolerance.addEventListener("input", () => {
+      if (slippageDisplay) slippageDisplay.textContent = slippageTolerance.value + "%";
     });
+  }
+
+  // Refresh buttons
+  const refreshBalances = $("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  // Refresh portfolio
+  const refreshPortfolio = $("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  // Refresh reserves
+  const refreshReserves = $("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  updateTokenLogos();
+
+
+
+
+
+
+
   }
 
 
 
 
-  document.querySelectorAll(".timeframe-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const tf = e.target.getAttribute("data-timeframe");
-      if (tf) changeTimeframe(tf);
-    });
   });
 
-  document.querySelectorAll(".pair-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const pair = e.target.getAttribute("data-pair");
-      if (pair) {
-        const [from, to] = pair.split("-");
-        if (fromToken) fromToken.value = from;
-        if (toToken) toToken.value = to;
-        updateTokenLogos();
-        updateOutputEstimate();
-      }
-    });
   });
-  updateTokenLogos();
 }
 
 // Start periodic updates with error handling
