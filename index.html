@@ -3156,6 +3156,99 @@ function handleSwapFlip() {
   fromTokenEl.value = toVal;
   toTokenEl.value = fromVal;
 
+
+  // Approve button
+  const approveBtn = document.getElementById("approveBtn");
+  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
+
+  // Swap flip button
+  const swapFlip = document.getElementById("swapFlip");
+  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
+
+  // Slippage input
+  const slippage = document.getElementById("slippageTolerance");
+  if (slippage) {
+    slippage.addEventListener("input", () => {
+      const slippageDisplay = document.getElementById("slippageDisplay");
+      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+    });
+  }
+
+  // Refresh buttons
+  const refreshBalances = document.getElementById("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  const refreshPortfolio = document.getElementById("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  const refreshReserves = document.getElementById("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  // Timeframe buttons
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const timeframe = e.target.getAttribute("data-timeframe");
+      if (timeframe) changeTimeframe(timeframe);
+    });
+  });
+
+  // Pair buttons
+  document.querySelectorAll(".pair-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const pair = e.target.getAttribute("data-pair");
+      if (pair) {
+        const [from, to] = pair.split("-");
+        if (fromToken) fromToken.value = from;
+        if (toToken) toToken.value = to;
+        updateTokenLogos();
+        updateOutputEstimate();
+        log("Selected pair: " + from + "/" + to, "info");
+      }
+    });
+  });
+
+  const approveBtn = document.getElementById("approveBtn");
+  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
+
+  const swapFlip = document.getElementById("swapFlip");
+  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
+
+  const slippage = document.getElementById("slippageTolerance");
+  if (slippage) {
+    slippage.addEventListener("input", () => {
+      const slippageDisplay = document.getElementById("slippageDisplay");
+      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+    });
+  }
+
+  const refreshBalances = document.getElementById("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  const refreshPortfolio = document.getElementById("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  const refreshReserves = document.getElementById("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const tf = e.target.getAttribute("data-timeframe");
+      if (tf) changeTimeframe(tf);
+    });
+  });
+
+  document.querySelectorAll(".pair-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const pair = e.target.getAttribute("data-pair");
+      if (pair) {
+        const [from, to] = pair.split("-");
+        if (fromToken) fromToken.value = from;
+        if (toToken) toToken.value = to;
+        updateTokenLogos();
+        updateOutputEstimate();
+      }
+    });
+  });
   updateTokenLogos();
   updateOutputEstimate();
 
@@ -3214,6 +3307,99 @@ function flipSwap() {
   toToken.value = temp;
 
   // Update logos
+
+  // Approve button
+  const approveBtn = document.getElementById("approveBtn");
+  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
+
+  // Swap flip button
+  const swapFlip = document.getElementById("swapFlip");
+  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
+
+  // Slippage input
+  const slippage = document.getElementById("slippageTolerance");
+  if (slippage) {
+    slippage.addEventListener("input", () => {
+      const slippageDisplay = document.getElementById("slippageDisplay");
+      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+    });
+  }
+
+  // Refresh buttons
+  const refreshBalances = document.getElementById("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  const refreshPortfolio = document.getElementById("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  const refreshReserves = document.getElementById("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  // Timeframe buttons
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const timeframe = e.target.getAttribute("data-timeframe");
+      if (timeframe) changeTimeframe(timeframe);
+    });
+  });
+
+  // Pair buttons
+  document.querySelectorAll(".pair-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const pair = e.target.getAttribute("data-pair");
+      if (pair) {
+        const [from, to] = pair.split("-");
+        if (fromToken) fromToken.value = from;
+        if (toToken) toToken.value = to;
+        updateTokenLogos();
+        updateOutputEstimate();
+        log("Selected pair: " + from + "/" + to, "info");
+      }
+    });
+  });
+
+  const approveBtn = document.getElementById("approveBtn");
+  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
+
+  const swapFlip = document.getElementById("swapFlip");
+  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
+
+  const slippage = document.getElementById("slippageTolerance");
+  if (slippage) {
+    slippage.addEventListener("input", () => {
+      const slippageDisplay = document.getElementById("slippageDisplay");
+      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+    });
+  }
+
+  const refreshBalances = document.getElementById("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  const refreshPortfolio = document.getElementById("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  const refreshReserves = document.getElementById("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const tf = e.target.getAttribute("data-timeframe");
+      if (tf) changeTimeframe(tf);
+    });
+  });
+
+  document.querySelectorAll(".pair-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const pair = e.target.getAttribute("data-pair");
+      if (pair) {
+        const [from, to] = pair.split("-");
+        if (fromToken) fromToken.value = from;
+        if (toToken) toToken.value = to;
+        updateTokenLogos();
+        updateOutputEstimate();
+      }
+    });
+  });
   updateTokenLogos();
 
   // Clear amounts
@@ -3598,25 +3784,27 @@ function setupEventListeners() {
   if (fromToken && toToken) {
     fromToken.addEventListener("change", () => {
       updateTokenLogos();
-      loadBalances();
+      updateOutputEstimate();
+      if (isWalletConnected()) loadBalances();
     });
 
     toToken.addEventListener("change", () => {
       updateTokenLogos();
-      loadBalances();
+      updateOutputEstimate();
+      if (isWalletConnected()) loadBalances();
     });
   }
 
   // Swap amount input
   const fromAmount = document.getElementById("fromAmount");
   if (fromAmount) {
-    fromAmount.addEventListener("input", calculateSwapOutput);
+    fromAmount.addEventListener("input", debouncedUpdateOutput);
   }
 
   // Swap button
   const swapBtn = document.getElementById("swapBtn");
   if (swapBtn) {
-    swapBtn.addEventListener("click", executeSwap);
+    swapBtn.addEventListener("click", handleSwap);
   }
 
   // Update logos initially
@@ -3631,6 +3819,99 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Approve button
+  const approveBtn = document.getElementById("approveBtn");
+  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
+
+  // Swap flip button
+  const swapFlip = document.getElementById("swapFlip");
+  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
+
+  // Slippage input
+  const slippage = document.getElementById("slippageTolerance");
+  if (slippage) {
+    slippage.addEventListener("input", () => {
+      const slippageDisplay = document.getElementById("slippageDisplay");
+      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+    });
+  }
+
+  // Refresh buttons
+  const refreshBalances = document.getElementById("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  const refreshPortfolio = document.getElementById("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  const refreshReserves = document.getElementById("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  // Timeframe buttons
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const timeframe = e.target.getAttribute("data-timeframe");
+      if (timeframe) changeTimeframe(timeframe);
+    });
+  });
+
+  // Pair buttons
+  document.querySelectorAll(".pair-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const pair = e.target.getAttribute("data-pair");
+      if (pair) {
+        const [from, to] = pair.split("-");
+        if (fromToken) fromToken.value = from;
+        if (toToken) toToken.value = to;
+        updateTokenLogos();
+        updateOutputEstimate();
+        log("Selected pair: " + from + "/" + to, "info");
+      }
+    });
+  });
+
+  const approveBtn = document.getElementById("approveBtn");
+  if (approveBtn) approveBtn.addEventListener("click", handleApprove);
+
+  const swapFlip = document.getElementById("swapFlip");
+  if (swapFlip) swapFlip.addEventListener("click", handleSwapFlip);
+
+  const slippage = document.getElementById("slippageTolerance");
+  if (slippage) {
+    slippage.addEventListener("input", () => {
+      const slippageDisplay = document.getElementById("slippageDisplay");
+      if (slippageDisplay) slippageDisplay.textContent = slippage.value + "%";
+    });
+  }
+
+  const refreshBalances = document.getElementById("refreshBalances");
+  if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
+
+  const refreshPortfolio = document.getElementById("refreshPortfolio");
+  if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
+
+  const refreshReserves = document.getElementById("refreshReserves");
+  if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
+
+  document.querySelectorAll(".timeframe-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const tf = e.target.getAttribute("data-timeframe");
+      if (tf) changeTimeframe(tf);
+    });
+  });
+
+  document.querySelectorAll(".pair-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const pair = e.target.getAttribute("data-pair");
+      if (pair) {
+        const [from, to] = pair.split("-");
+        if (fromToken) fromToken.value = from;
+        if (toToken) toToken.value = to;
+        updateTokenLogos();
+        updateOutputEstimate();
+      }
+    });
+  });
   updateTokenLogos();
 }
 
@@ -3776,61 +4057,9 @@ async function calculateSwapOutput() {
   }
 }
 
-// Execute swap
+// Execute swap - calls handleSwap from swap module
 async function executeSwap() {
-  if (!isWalletConnected()) {
-    log("Please connect wallet first", "error");
-    return;
-  }
-
-  const fromAmount = document.getElementById("fromAmount")?.value;
-  if (!fromAmount || parseFloat(fromAmount) <= 0) {
-    log("Enter valid amount", "error");
-    return;
-  }
-
-  try {
-    log("Preparing swap...", "info");
-
-    const signer = getSigner();
-    const tokenContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, signer);
-
-    // Check allowance
-    const allowance = await tokenContract.allowance(
-      await signer.getAddress(),
-      ADDRESSES.ROUTER
-    );
-
-    const amountIn = ethers.parseUnits(fromAmount, 6);
-
-    if (allowance < amountIn) {
-      log("Approving tokens...", "info");
-      const approveTx = await tokenContract.approve(ADDRESSES.ROUTER, amountIn);
-      await approveTx.wait();
-      log("✓ Tokens approved", "info");
-    }
-
-    log("Executing swap...", "info");
-
-    const routerContract = new ethers.Contract(ADDRESSES.ROUTER, ABIS.ROUTER, signer);
-    const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
-
-    const tx = await routerContract.swapExactTokensForTokens(
-      amountIn,
-      0,
-      [ADDRESSES.USDC, ADDRESSES.BFL],
-      await signer.getAddress(),
-      deadline
-    );
-
-    log("Transaction sent: " + tx.hash, "info");
-    await tx.wait();
-    log("✅ Swap successful!", "info");
-
-    await loadBalances();
-  } catch (err) {
-    log("Swap failed: " + getErrorMessage(err), "error");
-  }
+  await handleSwap();
 }
 
 console.info("✅ Main module loaded");
