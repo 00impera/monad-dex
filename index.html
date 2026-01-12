@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1191,33 +1192,26 @@ label {
     justify-content: space-between;
   }
 
-  .logo {
-    width: 56px;
-    height: 56px;
-  }
+  /* Desktop/tablet styles (default) */
+.logo {
+  width: 56px;
+  height: 56px;
 }
 
+/* Mobile styles */
 @media (max-width: 640px) {
   .card {
     padding: var(--space-2);
   }
-
   .token-input {
     flex-wrap: wrap;
     gap: var(--space-2);
   }
-
-  .token-logo {
-    width: 40px;
-    height: 40px;
-  }
-
   .btn {
     min-height: var(--button-height-sm);
     padding: var(--space-2) var(--space-3);
     font-size: var(--text-sm);
   }
-
   .chart-placeholder {
     height: 280px;
   }
@@ -2628,6 +2622,8 @@ async function connectWallet() {
 
   try {
     log("Connecting wallet...", "info");
+    console.info("wallet debug:", { hasEthereum: !!window.ethereum, isMetaMask: !!(window.ethereum && window.ethereum.isMetaMask), userAgent: navigator.userAgent });
+    if (!window.ethereum) { alert("No injected wallet found. Install MetaMask or use a supported wallet."); }
 
     if (window.ethereum) {
       const accounts = await window.ethereum.request({
@@ -2740,6 +2736,7 @@ function updateTokenLogos() {
     toLogo.alt = toToken + " logo";
   }
 }
+
 
 // Export functions globally
 window.connectWallet = connectWallet;
@@ -2869,8 +2866,8 @@ function updatePrice() {
   }
 
   // Add to price history for chart
-  if (typeof addPriceToHistory === "function") {
-    addPriceToHistory(priceUSDC);
+  if (typeof updateChart === "function") {
+    updateChart(priceUSDC);
   }
 
   return priceUSDC;
@@ -3692,22 +3689,9 @@ function setupEventListeners() {
   if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
 
   updateTokenLogos();
+ }
 
 
-
-
-
-
-
-  }
-
-
-
-
-  });
-
-  });
-}
 
 // Start periodic updates with error handling
 function startPeriodicUpdates() {
@@ -3743,49 +3727,6 @@ function startPeriodicUpdates() {
 }
 
 // Load pair reserves with better error handling
-async function loadPairReserves() {
-  const provider = window.readProvider;
-  if (!provider) {
-    console.warn("RPC provider not ready yet");
-    return;
-  }
-
-  try {
-    const pairContract = new ethers.Contract(
-      ADDRESSES.PAIR,
-      ABIS.PAIR,
-      window.readProvider
-    );
-
-    // Get reserves with timeout
-    const reserves = await Promise.race([
-      pairContract.getReserves(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), 5000)
-      )
-    ]);
-
-    if (!reserves || !reserves[0] || !reserves[1]) {
-      throw new Error("Invalid reserves data");
-    }
-
-    const reserve0 = formatAmount(reserves[0], 6);
-    const reserve1 = formatAmount(reserves[1], 18);
-
-    // Update UI
-    document.getElementById("reserve0Amount").textContent = formatNumber(reserve0);
-    document.getElementById("reserve1Amount").textContent = formatNumber(reserve1);
-
-    // Update chart if function exists
-    if (typeof updateChart === 'function') {
-      const price = parseFloat(reserve0) / parseFloat(reserve1);
-      updateChart(price);
-    }
-
-    return { reserve0, reserve1 };
-  } catch (err) {
-    throw new Error("Failed to load reserves: " + err.message);
-  }
 }
 
 // Update gas price
@@ -3811,7 +3752,7 @@ async function updateChainStats() {
 
   try {
     const blockNumber = await window.readProvider.getBlockNumber();
-    const blockNumberEl = document.getElementById("blockNumber");
+    const blockNumberEl = document.getElementById("currentBlock");
     if (blockNumberEl) {
       blockNumberEl.textContent = blockNumber.toLocaleString();
     }
@@ -3858,7 +3799,8 @@ async function executeSwap() {
 
 console.info("✅ Main module loaded");
 
-})();
+  }
+  })();
 </script>
 </body>
 </html>
