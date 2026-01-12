@@ -616,6 +616,24 @@
     async function preferInjectedSignerIfAvailable() {
       try {
         if (window.ethereum) {
+          // Try to ensure MetaMask uses the Alchemy RPC for Monad (this will prompt if needed).
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: "0x8F",
+                chainName: "Monad Mainnet",
+                rpcUrls: [CONFIG.ALCHEMY_RPC],
+                nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 },
+                blockExplorerUrls: ["https://explorer.monad.xyz"]
+              }]
+            });
+            log("Requested MetaMask to use Alchemy RPC for Monad (preferred signer).", "debug");
+          } catch (e) {
+            // user may reject; still proceed to use injected provider (but its RPC could be different)
+            console.debug("wallet_addEthereumChain during preferInjectedSignerIfAvailable:", e);
+          }
+
           // Always try to use injected provider for transactions if present.
           walletProvider = new ethers.BrowserProvider(window.ethereum);
           signer = await walletProvider.getSigner();
@@ -650,6 +668,25 @@
         if (window.ethereum && !window.ethereum.isWeb3Auth) {
           log("MetaMask detected, attempting connection...", "debug");
           try {
+            // Ensure MetaMask has the correct RPC for Monad (force add/update to Alchemy).
+            // This helps replace bad temporary RPC URLs like twnodes session URLs.
+            try {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: "0x8F",
+                  chainName: "Monad Mainnet",
+                  rpcUrls: [CONFIG.ALCHEMY_RPC],
+                  nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 },
+                  blockExplorerUrls: ["https://explorer.monad.xyz"]
+                }]
+              });
+              log("Requested MetaMask to use Alchemy RPC for Monad", "debug");
+            } catch (e) {
+              // wallet_addEthereumChain may be rejected or unsupported; continue
+              console.debug("wallet_addEthereumChain call failed/was rejected:", e);
+            }
+
             const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
             if (!accounts || accounts.length === 0) throw new Error("No accounts returned from MetaMask");
             const chainId = await window.ethereum.request({ method: "eth_chainId" });
@@ -669,6 +706,7 @@
               }
             }
 
+            // Create provider from injected wallet (MetaMask) after requesting network update.
             walletProvider = new ethers.BrowserProvider(window.ethereum);
             signer = await walletProvider.getSigner();
             userAddress = await signer.getAddress();
@@ -1203,75 +1241,4 @@
 
       // Add liquidity (safe wrapper)
       if ($("addLiquidityBtn")) {
-        $("addLiquidityBtn").addEventListener("click", async (e) => {
-          if (typeof handleAddLiquidity === "function") await handleAddLiquidity(e);
-          else log("handleAddLiquidity not defined", "error");
-        });
-      }
-
-      // Refresh balances/reserves
-      if ($("refreshBalancesBtn")) $("refreshBalancesBtn").addEventListener("click", loadBalances);
-      if ($("refreshReservesBtn")) $("refreshReservesBtn").addEventListener("click", loadPairReserves);
-      if ($("refreshAllBtn")) $("refreshAllBtn").addEventListener("click", async () => { await Promise.all([loadBalances(), loadPairReserves()]); });
-
-      // Token selection / input events (defensive)
-      if ($("fromToken")) $("fromToken").addEventListener("change", () => { if (typeof updateTokenLogos === "function") updateTokenLogos(); if (typeof updateOutputEstimate === "function") updateOutputEstimate(); });
-      if ($("toToken")) $("toToken").addEventListener("change", () => { if (typeof updateTokenLogos === "function") updateTokenLogos(); if (typeof updateOutputEstimate === "function") updateOutputEstimate(); });
-      if ($("amountIn")) $("amountIn").addEventListener("input", () => { if (typeof updateOutputEstimate === "function") updateOutputEstimate(); });
-
-      // Swap flip
-      if ($("swapFlip")) $("swapFlip").addEventListener("click", () => {
-        const fromVal = $("fromToken").value; const toVal = $("toToken").value;
-        $("fromToken").value = toVal; $("toToken").value = fromVal;
-        if (typeof updateTokenLogos === "function") updateTokenLogos();
-        if (typeof updateOutputEstimate === "function") updateOutputEstimate();
-      });
-
-      if ($("timeframe")) $("timeframe").addEventListener("change", (e) => {
-        currentTimeframe = e.target.value || "1m";
-        const candles = groupPricesByTimeframe(priceHistory, TIMEFRAMES[currentTimeframe]);
-        updateChart(candles);
-      });
-
-      // --- end event wiring ---
-
-      updateTokenLogos();
-      initChart();
-
-      // Set initial wallet UI
-      updateWalletUI();
-
-      await loadPairReserves();
-
-      setInterval(async () => {
-        await loadPairReserves();
-        if (userAddress) await loadBalances();
-      }, CONFIG.POLL_MS);
-
-      log("App ready. Connect wallet to start trading.", "info");
-
-      // auto-connect if previously connected
-      if (window.ethereum) {
-        try {
-          const accounts = await window.ethereum.request({ method: "eth_accounts" });
-          if (accounts && accounts.length > 0) {
-            log("Auto-connecting to wallet...", "debug");
-            await connectWallet();
-          }
-        } catch {}
-      }
-
-      // demo gas pulse
-      (function neonPulseDemo(){
-        const gasEl = document.getElementById('gasTracker');
-        if(!gasEl) return;
-        let g = 6.2;
-        setInterval(() => {
-          g = Math.max(0.1, (g + (Math.random()-0.45)*0.8));
-          gasEl.querySelector('span:nth-child(2)').textContent = g.toFixed(2) + ' gwei';
-        }, 2200);
-      })();
-    });
-  </script>
-</body>
-</html>
+        $("addLiquidityBtn").addEventListener("click"
