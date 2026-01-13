@@ -2346,27 +2346,15 @@ label {
 
 </body>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><<script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const shareUrl = location.href; // Change to a specific buy URL if needed
+document.addEventListener('DOMContentLoaded', function() {
+  const shareUrl = window.location.href; // Or set to your buy link if needed
 
-  // Elements
+  // Sidebar QR code
   const qrcodeEl = document.getElementById('qrcode');
-  const qrcodeModalEl = document.getElementById('qrcodeModal');
-  const shareBtn = document.getElementById('shareQRBtn');
-  const downloadBtn = document.getElementById('downloadQR');
-  const qrModal = document.getElementById('qrModal');
-  const closeModalBtn = document.getElementById('closeModal');
-  const copyLinkBtn = document.getElementById('copyLink');
-  const downloadQRModalBtn = document.getElementById('downloadQRModal');
-  const copySuccess = document.getElementById('copySuccess');
-
-  // Generate QR codes in both sidebar and modal
-  function generateQRs() {
-    if (qrcodeEl) qrcodeEl.innerHTML = '';
-    if (qrcodeModalEl) qrcodeModalEl.innerHTML = '';
-
+  if (qrcodeEl) {
+    qrcodeEl.innerHTML = '';
     new QRCode(qrcodeEl, {
       text: shareUrl,
       width: 180,
@@ -2375,7 +2363,12 @@ document.addEventListener('DOMContentLoaded', () => {
       colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.H
     });
+  }
 
+  // Modal QR code
+  const qrcodeModalEl = document.getElementById('qrcodeModal');
+  if (qrcodeModalEl) {
+    qrcodeModalEl.innerHTML = '';
     new QRCode(qrcodeModalEl, {
       text: shareUrl,
       width: 240,
@@ -2386,133 +2379,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Get data URL from QR container (img or canvas)
-  async function getDataUrlFromContainer(container) {
-    if (!container) throw new Error('Missing container');
-    const img = container.querySelector('img');
-    if (img && img.src) {
-      if (img.src.startsWith('data:')) return img.src;
-      // If not a data URL, fetch and convert
-      const resp = await fetch(img.src);
-      const blob = await resp.blob();
-      return await blobToDataURL(blob);
-    }
-    const canvas = container.querySelector('canvas');
-    if (canvas) return canvas.toDataURL('image/png');
-    throw new Error('No img or canvas found inside QR container.');
+  // Modal show/hide logic
+  const shareBtn = document.getElementById('shareQRBtn');
+  const qrModal = document.getElementById('qrModal');
+  const closeModalBtn = document.getElementById('closeModal');
+  if (shareBtn && qrModal) {
+    shareBtn.onclick = () => { qrModal.style.display = 'flex'; };
   }
-
-  function blobToDataURL(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+  if (closeModalBtn && qrModal) {
+    closeModalBtn.onclick = () => { qrModal.style.display = 'none'; };
   }
-
-  async function downloadDataUrl(dataUrl, filename = 'monad-dex-qr.png') {
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  // Modal show/hide
-  function showModal() {
-    qrModal.style.display = 'flex';
-    qrModal.style.alignItems = 'center';
-    qrModal.style.justifyContent = 'center';
-  }
-  function hideModal() {
-    qrModal.style.display = 'none';
-  }
-
-  // Generate QRs on load
-  generateQRs();
-
-  // Share button: Web Share API or fallback to modal
-  if (shareBtn) {
-    shareBtn.addEventListener('click', async () => {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: 'Buy BFL on Monad DEX',
-            text: 'Buy BFL tokens on Monad DEX',
-            url: shareUrl
-          });
-        } catch (err) {
-          showModal();
-        }
-      } else {
-        showModal();
-      }
-    });
-  }
-
-  // Sidebar download
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', async () => {
-      try {
-        const dataUrl = await getDataUrlFromContainer(qrcodeEl);
-        await downloadDataUrl(dataUrl, 'monad-dex-qr.png');
-      } catch (err) {
-        console.error('Download failed:', err);
-        alert('Unable to download QR. Open console for details.');
-      }
-    });
-  }
-
-  // Modal download
-  if (downloadQRModalBtn) {
-    downloadQRModalBtn.addEventListener('click', async () => {
-      try {
-        const dataUrl = await getDataUrlFromContainer(qrcodeModalEl);
-        await downloadDataUrl(dataUrl, 'monad-dex-qr.png');
-      } catch (err) {
-        console.error('Modal download failed:', err);
-        alert('Unable to download QR from modal.');
-      }
-    });
-  }
-
-  // Copy link button
-  if (copyLinkBtn) {
-    copyLinkBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        if (copySuccess) {
-          copySuccess.style.display = 'block';
-          setTimeout(() => copySuccess.style.display = 'none', 2000);
-        } else {
-          alert('Link copied to clipboard');
-        }
-      } catch (err) {
-        console.error('Copy failed:', err);
-        prompt('Copy this link:', shareUrl);
-      }
-    });
-  }
-
-  // Close modal
-  if (closeModalBtn) closeModalBtn.addEventListener('click', hideModal);
-
-  // Close modal by clicking backdrop
+  // Optional: close modal when clicking outside the modal content
   if (qrModal) {
-    qrModal.addEventListener('click', (e) => {
-      if (e.target === qrModal) hideModal();
+    qrModal.addEventListener('click', function(e) {
+      if (e.target === qrModal) qrModal.style.display = 'none';
     });
   }
-
-  // If you ever change shareUrl dynamically, call generateQRs() again
 });
 </script>
+  (function() {
+"use strict";
 
 /* ============================================
    MONAD DEX - CONFIGURATION
@@ -4046,6 +3932,8 @@ async function executeSwap() {
 }
 
 console.info("✅ Main module loaded");
+
+})();
 </script>
 </body>
 </html>
