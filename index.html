@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -2349,29 +2348,18 @@ label {
       return document.getElementById(id);
     }
 
+
     function formatAmount(amount, decimals = 18) {
   if (!amount) return "0";
   try {
-    // Convert BigInt safely using ethers
-    const str = amount.toString();
-    const formatted = ethers.formatUnits(str, decimals);
+    // Handle both BigInt and regular numbers
+    const amountStr = typeof amount === 'bigint' ? amount.toString() : String(amount);
+    const formatted = ethers.formatUnits(amountStr, decimals);
     const num = parseFloat(formatted);
     return num.toFixed(Math.min(decimals, 6));
   } catch (err) {
     console.error("formatAmount error:", err);
     return "0";
-  }
-}
-
-    function parseAmount(amount, decimals = 18) {
-  if (!amount) return 0n;
-  try {
-    // Use ethers.parseUnits which handles decimals correctly
-    const parsed = ethers.parseUnits(String(amount), decimals);
-    return BigInt(parsed.toString());
-  } catch (err) {
-    console.error("parseAmount error:", err);
-    return 0n;
   }
 }
 
@@ -2867,29 +2855,39 @@ function updatePrice() {
   const usdcAddr = ADDRESSES.USDC.toLowerCase();
   let priceUSDC;
 
-  if (pairCache.token0 === usdcAddr) {
-    // token0 is USDC, token1 is BFL
-    const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
-    const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
-    priceUSDC = r0 / r1; // USDC per BFL
-  } else {
-    // token1 is USDC, token0 is BFL
-    const r0 = Number(pairCache.reserve0) / (10 ** pairCache.dec0);
-    const r1 = Number(pairCache.reserve1) / (10 ** pairCache.dec1);
-    priceUSDC = r1 / r0; // USDC per BFL
-  }
+  try {
+    if (pairCache.token0 === usdcAddr) {
+      // token0 is USDC, token1 is BFL
+      // Convert to numbers for calculation
+      const r0 = parseFloat(ethers.formatUnits(pairCache.reserve0.toString(), pairCache.dec0));
+      const r1 = parseFloat(ethers.formatUnits(pairCache.reserve1.toString(), pairCache.dec1));
+      priceUSDC = r0 / r1; // USDC per BFL
+    } else {
+      // token1 is USDC, token0 is BFL
+      const r0 = parseFloat(ethers.formatUnits(pairCache.reserve0.toString(), pairCache.dec0));
+      const r1 = parseFloat(ethers.formatUnits(pairCache.reserve1.toString(), pairCache.dec1));
+      priceUSDC = r1 / r0; // USDC per BFL
+    }
 
-  if ($("priceDisplay")) {
-    $("priceDisplay").textContent = `price: $${priceUSDC.toFixed(6)}`;
-  }
+    if ($("priceDisplay")) {
+      $("priceDisplay").textContent = `price: $${priceUSDC.toFixed(6)}`;
+    }
 
-  // Add to price history for chart
-  if (typeof updateChart === "function") {
-    updateChart(priceUSDC);
-  }
+    // Add to price history for chart
+    if (typeof updateChart === "function") {
+      updateChart(priceUSDC);
+    }
 
-  return priceUSDC;
+    return priceUSDC;
+  } catch (err) {
+    console.error("updatePrice error:", err);
+    if ($("priceDisplay")) {
+      $("priceDisplay").textContent = "price: error";
+    }
+    return null;
+  }
 }
+
 
 /* ==================
    SWAP CALCULATIONS
