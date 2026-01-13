@@ -1971,12 +1971,19 @@ label {
             </svg>
           </div>
 
-          <!-- Title section -->
-          <div>
-            <h1>Monad DEX — USDC ↔ BitcoinFlash (BFL)</h1>
+           <!-- Title section -->
+             <div>
+              <h1>
+               <span class="monad">MONAD</span>
+                —
+               <span class="dex">DEX</span>
+               <span class="usdc">USDC</span>
+               ↔
+               <span class="bitcoinflash">BITCOIN FLASH</span>
+              (<span class="bfl">BFL</span>)
+              </h1>
             <div class="small">Pair: 0x57489A99...5d62 — Network: Monad (143)</div>
           </div>
-        </div>
 
         <!-- Current price badge -->
         <div id="priceDisplay" class="price-badge" style="margin-left: 6px;">
@@ -3267,27 +3274,36 @@ function initChart() {
   generateMockData(currentTimeframe);
 
   // Create gradient
-  const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-  gradient.addColorStop(0, 'rgba(0, 255, 255, 0.3)');
-  gradient.addColorStop(1, 'rgba(0, 255, 255, 0.01)');
+  const ctx2d = ctx.getContext("2d");
 
-  priceChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: chartData.labels,
-      datasets: [{
-        label: 'USDC Price',
+// Neon green and neon purple for the line
+const lineGradient = ctx2d.createLinearGradient(0, 0, 0, 400);
+lineGradient.addColorStop(0, "#39FF14"); // Neon green at the top
+lineGradient.addColorStop(1, "#B400FF"); // Neon purple at the bottom
+
+// Neon green and neon purple for the fill (with transparency)
+const fillGradient = ctx2d.createLinearGradient(0, 0, 0, 400);
+fillGradient.addColorStop(0, "rgba(57, 255, 20, 0.3)"); // Neon green, semi-transparent
+fillGradient.addColorStop(1, "rgba(180, 0, 255, 0.05)"); // Neon purple, more transparent
+
+priceChart = new Chart(ctx, {
+  type: "line",
+  data: {
+    labels: chartData.labels,
+    datasets: [
+      {
+        label: "USDC Price",
         data: chartData.prices,
-        borderColor: 'rgb(0, 255, 255)',
-        backgroundColor: gradient,
+        borderColor: lineGradient, // Neon green → neon purple line
+        backgroundColor: fillGradient, // Neon green → neon purple fill
         borderWidth: 2,
         fill: true,
         tension: 0.4,
         pointRadius: 0,
         pointHoverRadius: 6,
-        pointHoverBackgroundColor: 'rgb(0, 255, 255)',
-        pointHoverBorderColor: '#000',
-        pointHoverBorderWidth: 2
+        pointHoverBackgroundColor: "#39FF14", // Neon green on hover
+        pointHoverBorderColor: "#B400FF", // Neon purple border on hover
+        pointHoverBorderWidth: 2,
       }]
     },
     options: {
@@ -3799,8 +3815,7 @@ async function executeSwap() {
 
 console.info("✅ Main module loaded");
 
-  }
-  })();
+})();
 </script>
 </body>
 </html>
