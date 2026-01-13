@@ -2277,14 +2277,14 @@ label {
           </button>
         </div>
         
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-   <script>  
-  <script>
+   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+<script>  
+<script>
   document.addEventListener('DOMContentLoaded', function() { 
- </script>
-  <script>
+</script>
+<script>
   (function() {
- "use strict"; 
+ "use strict";
          /* ==================== UTILITY FUNCTIONS ==================== */
 
     /* Debounce helper - prevents excessive function calls */
@@ -2337,14 +2337,11 @@ label {
     }
 
 
-/* Parse amount to BigInt with decimals */
-function parseAmount(amount, decimals) {
-  if (!amount) return 0n;
+function formatAmount(amount, decimals) {
   try {
-    return ethers.parseUnits(String(amount), decimals);
-  } catch (err) {
-    console.error("parseAmount error:", err);
-    return 0n;
+    return ethers.formatUnits(amount.toString(), decimals);
+  } catch {
+    return "0";
   }
 }
 
@@ -3564,39 +3561,44 @@ async function getCurrentPriceFromReserves() {
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     log("🚀 Monad DEX initializing...", "info");
-
+    
     // Initialize RPC provider with retries
     try {
       await initReadProvider();
     } catch (err) {
       log("⚠️ RPC connection failed - using limited mode", "warn");
     }
-
-    // Initialize chart
-    initChart();
-    log("✅ Chart initialized", "info");
-
+    
+    // Wait for Chart.js to be loaded before initializing
+    if (typeof Chart !== 'undefined') {
+      initChart();
+      log("✅ Chart initialized", "info");
+    } else {
+      log("⚠️ Chart.js not loaded", "warn");
+    }
+    
     // Try to load pair data (but don't fail if it errors)
     try {
       await loadPairReserves();
     } catch (err) {
       log("⚠️ Could not load pair reserves - " + err.message, "warn");
     }
-
+    
     // Setup event listeners
     setupEventListeners();
     log("✅ Event listeners registered", "info");
-
+    
     // Auto-connect wallet if previously connected
     await autoConnectWallet();
-
+    
     // Start periodic updates (with error handling)
     startPeriodicUpdates();
     log("✅ Periodic updates started", "info");
-
+    
     log("✅ Monad DEX ready!", "info");
   } catch (err) {
     log("❌ Initialization error: " + getErrorMessage(err), "error");
+    console.error("Initialization failed:", err);
   }
 });
 
@@ -3632,7 +3634,6 @@ function setupEventListeners() {
     swapBtn.addEventListener("click", handleSwap);
   }
 
-  // Update logos initially
   // Connect wallet button
   const connectBtn = document.getElementById("connectWallet");
   if (connectBtn) {
@@ -3690,24 +3691,21 @@ function setupEventListeners() {
   const refreshBalances = $("refreshBalances");
   if (refreshBalances) refreshBalances.addEventListener("click", refreshAll);
 
-  // Refresh portfolio
   const refreshPortfolio = $("refreshPortfolio");
   if (refreshPortfolio) refreshPortfolio.addEventListener("click", loadBalances);
 
-  // Refresh reserves
   const refreshReserves = $("refreshReserves");
   if (refreshReserves) refreshReserves.addEventListener("click", loadPairReserves);
 
+  // Update logos initially
   updateTokenLogos();
- }
-
-
+}
 
 // Start periodic updates with error handling
 function startPeriodicUpdates() {
   // Update pair reserves every 15 seconds
   setInterval(async () => {
-        if (!readProvider) return;  // Skip if provider not ready
+    if (!readProvider) return;
     try {
       await loadPairReserves();
     } catch (err) {
@@ -3717,7 +3715,7 @@ function startPeriodicUpdates() {
 
   // Update gas price every 10 seconds
   setInterval(async () => {
-        if (!readProvider) return;  // Skip if provider not ready
+    if (!readProvider) return;
     try {
       await updateGasPrice();
     } catch (err) {
@@ -3727,7 +3725,7 @@ function startPeriodicUpdates() {
 
   // Update chain stats every 30 seconds
   setInterval(async () => {
-        if (!readProvider) return;  // Skip if provider not ready
+    if (!readProvider) return;
     try {
       await updateChainStats();
     } catch (err) {
@@ -3735,9 +3733,6 @@ function startPeriodicUpdates() {
     }
   }, 30000);
 }
-
-// Load pair reserves with better error handling
-
 
 // Update gas price
 async function updateGasPrice() {
@@ -3749,10 +3744,10 @@ async function updateGasPrice() {
 
     const gasPriceEl = document.getElementById("gasPrice");
     if (gasPriceEl) {
-      gasPriceEl.textContent = parseFloat(gasPrice).toFixed(2);
+      gasPriceEl.textContent = parseFloat(gasPrice).toFixed(2) + " gwei";
     }
   } catch (err) {
-    console.error("Gas price update error:", err); // <-- Add this for debugging
+    console.error("Gas price update error:", err);
   }
 }
 
@@ -3767,49 +3762,10 @@ async function updateChainStats() {
       blockNumberEl.textContent = blockNumber.toLocaleString();
     }
   } catch (err) {
-    console.error("Chain stats update error:", err); // <-- Add this for debugging
+    console.error("Chain stats update error:", err);
   }
-}
-
-
-// Calculate swap output
-async function calculateSwapOutput() {
-  const fromAmountEl = document.getElementById("fromAmount");
-  const toAmountEl = document.getElementById("toAmount");
-
-  if (!fromAmountEl || !toAmountEl) return;
-
-  const fromAmount = fromAmountEl.value;
-
-  if (!fromAmount || parseFloat(fromAmount) <= 0) {
-    toAmountEl.value = "";
-    return;
-  }
-
-  try {
-    // Simple constant product formula: x * y = k
-    const reserves = await loadPairReserves();
-    const amountIn = parseFloat(fromAmount);
-    const reserveIn = parseFloat(reserves.reserve0);
-    const reserveOut = parseFloat(reserves.reserve1);
-
-    // Apply 0.3% fee
-    const amountInWithFee = amountIn * 0.997;
-    const amountOut = (reserveOut * amountInWithFee) / (reserveIn + amountInWithFee);
-
-    toAmountEl.value = amountOut.toFixed(6);
-  } catch (err) {
-    toAmountEl.value = "Error calculating";
-  }
-}
-
-// Execute swap - calls handleSwap from swap module
-async function executeSwap() {
-  await handleSwap();
 }
 
 console.info("✅ Main module loaded");
-
-})();
 </script>
 </html>
