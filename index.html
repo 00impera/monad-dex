@@ -2277,64 +2277,73 @@ label {
           </button>
         </div>
         
-   <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-<script>  
+  <!-- Load ethers.js first -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+
+<!-- Single main script tag -->
 <script>
-  document.addEventListener('DOMContentLoaded', function() { 
-</script>
-<script>
-  (function() {
- "use strict";
-         /* ==================== UTILITY FUNCTIONS ==================== */
+(function() {
+"use strict";
 
-    /* Debounce helper - prevents excessive function calls */
-    function debounce(func, wait) {
-      let timeout;
-      return function executedFunction(...args) {
-        const later = () => {
-          clearTimeout(timeout);
-          func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-      };
+
+/* ==================== UTILITY FUNCTIONS ==================== */
+
+/* Debounce helper - prevents excessive function calls */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/* Logging helper */
+function log(msg, level = "info") {
+  console.log(msg);
+  const logEl = $("logDisplay");
+  if (logEl) {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = level === "error" ? "❌" : level === "warning" ? "⚠️" : "ℹ️";
+    logEl.textContent += `\n${prefix} [${timestamp}] ${msg}`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+}
+
+function getErrorMessage(error) {
+  if (!error) return "Unknown error";
+  if (error.reason) return error.reason;
+  if (error.message) {
+    const msg = error.message;
+    if (msg.includes("user rejected") || msg.includes("User denied")) {
+      return "Transaction cancelled by user";
     }
-
-    /* Logging helper */
-    /* Logging helper */
-    function log(msg, level = "info") {
-      console.log(msg);
-      const logEl = $("logDisplay");
-      if (logEl) {
-        const timestamp = new Date().toLocaleTimeString();
-        const prefix = level === "error" ? "❌" : level === "warning" ? "⚠️" : "ℹ️";
-        logEl.textContent += `\n${prefix} [${timestamp}] ${msg}`;
-        logEl.scrollTop = logEl.scrollHeight;
-      }
+    if (msg.includes("insufficient funds")) {
+      return "Insufficient funds for transaction";
     }
+    return msg;
+  }
+  return String(error);
+}
 
-    /* Error message helper */
-    function getErrorMessage(error) {
-      if (!error) return "Unknown error";
-      if (error.reason) return error.reason;
-      if (error.message) {
-        const msg = error.message;
-        if (msg.includes("user rejected") || msg.includes("User denied")) {
-          return "Transaction cancelled by user";
-        }
-        if (msg.includes("insufficient funds")) {
-          return "Insufficient funds for transaction";
-        }
-        return msg;
-      }
-      return String(error);
-    }
+/* DOM selector helper */
+function $(id) {
+  return document.getElementById(id);
+}
 
-
+   function parseAmount(amount, decimals) {
+  if (!amount) return 0n;
+  try {
+    return ethers.parseUnits(String(amount), decimals);
+  } catch (err) {
+    console.error("parseAmount error:", err);
+    return 0n;
+  }
+}
     /* DOM selector helper */
-    function $(id) {
-      return document.getElementById(id);
-    }
 
 
 function formatAmount(amount, decimals) {
@@ -3767,5 +3776,7 @@ async function updateChainStats() {
 }
 
 console.info("✅ Main module loaded");
+
+})();
 </script>
 </html>
