@@ -47,13 +47,13 @@
   --border-accent: rgba(0, 229, 255, 0.3);       /* Accent borders */
   --border-glow: rgba(0, 229, 255, 0.15);        /* Glowing borders */
 
-  /* Shadow colors */
-  --shadow-sm: rgba(0, 0, 0, 0.3);
-  --shadow-md: rgba(0, 0, 0, 0.4);
-  --shadow-lgz: rgba(0, 0, 0, 0.5);
-  --shadow-xl: rgba(0, 0, 0, 0.6);
-  --shadow-glow-cyan: rgba(0, 229, 255, 0.25);
-  --shadow-glow-purple: rgba(180, 0, 255, 0.25);
+ /* Shadow colors */
+--shadow-sm: rgba(0, 0, 0, 0.3);
+--shadow-md: rgba(0, 0, 0, 0.4);
+--shadow-lg: rgba(0, 0, 0, 0.5);
+--shadow-xl: rgba(0, 0, 0, 0.6);
+--shadow-glow-cyan: rgba(0, 229, 255, 0.25);
+--shadow-glow-purple: rgba(180, 0, 255, 0.25);
 
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.03);
@@ -2399,7 +2399,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
   (function() {
 "use strict";
-
+<script>
 /* ============================================
    MONAD DEX - CONFIGURATION
    ============================================ */
@@ -2457,17 +2457,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    function formatAmount(amount, decimals = 18) {
-  if (!amount) return "0";
+/* Parse amount to BigInt with decimals */
+function parseAmount(amount, decimals) {
+  if (!amount) return 0n;
   try {
-    // Handle both BigInt and regular numbers
-    const amountStr = typeof amount === 'bigint' ? amount.toString() : String(amount);
-    const formatted = ethers.formatUnits(amountStr, decimals);
-    const num = parseFloat(formatted);
-    return num.toFixed(Math.min(decimals, 6));
+    return ethers.parseUnits(String(amount), decimals);
   } catch (err) {
-    console.error("formatAmount error:", err);
-    return "0";
+    console.error("parseAmount error:", err);
+    return 0n;
   }
 }
 
@@ -3935,5 +3932,4 @@ console.info("✅ Main module loaded");
 
 })();
 </script>
-</body>
 </html>
