@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -50,7 +51,7 @@
   /* Shadow colors */
   --shadow-sm: rgba(0, 0, 0, 0.3);
   --shadow-md: rgba(0, 0, 0, 0.4);
-  --shadow-lg: rgba(0, 0, 0, 0.5);
+  --shadow-lgz: rgba(0, 0, 0, 0.5);
   --shadow-xl: rgba(0, 0, 0, 0.6);
   --shadow-glow-cyan: rgba(0, 229, 255, 0.25);
   --shadow-glow-purple: rgba(180, 0, 255, 0.25);
@@ -2287,7 +2288,7 @@ label {
 
 </body>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@1.14.0/dist/index.umd.min.js"></script>
+<script
 <script>
 (function() {
 "use strict";
@@ -2348,20 +2349,31 @@ label {
       return document.getElementById(id);
     }
 
-    /* Format amount from wei */
     function formatAmount(amount, decimals = 18) {
-      if (!amount) return "0";
-      const num = Number(amount) / (10 ** decimals);
-      return num.toFixed(Math.min(decimals, 6));
-    }
+  if (!amount) return "0";
+  try {
+    // Convert BigInt safely using ethers
+    const str = amount.toString();
+    const formatted = ethers.formatUnits(str, decimals);
+    const num = parseFloat(formatted);
+    return num.toFixed(Math.min(decimals, 6));
+  } catch (err) {
+    console.error("formatAmount error:", err);
+    return "0";
+  }
+}
 
-    /* Parse amount to wei */
     function parseAmount(amount, decimals = 18) {
-      if (!amount) return 0n;
-      const [whole, fraction = ""] = String(amount).split(".");
-      const padded = fraction.padEnd(decimals, "0").slice(0, decimals);
-      return BigInt(whole + padded);
-    }
+  if (!amount) return 0n;
+  try {
+    // Use ethers.parseUnits which handles decimals correctly
+    const parsed = ethers.parseUnits(String(amount), decimals);
+    return BigInt(parsed.toString());
+  } catch (err) {
+    console.error("parseAmount error:", err);
+    return 0n;
+  }
+}
 
     /* Get token decimals */
     async function getDecimals(tokenAddr, provider) {
