@@ -3,7 +3,8 @@
 | <img src="https://files.catbox.moe/ujzf30.gif" alt="USDC" width="36" height="36"> | USDC | USD Coin | `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` |
 | <img src="https://files.catbox.moe/lk7mrk.png" alt="BTCF" width="36" height="36"> | BTCF | BitcoinFlash | `0x7d7E0112d2763c98238aF7cebEAe33d53F3F76DD` |
 | <img src="https://files.catbox.moe/k0ibzr.png" alt="MDX"  width="36" height="36"> | MDX  | MDX COIN | `0x66238b63532509A9c9C2440DE341fd2335794a07` |
-This repository contains a small Uniswap-v2 style DEX prototype deployed on the Monad network (chainId 143). It includes token contracts, a factory/pair implementation, a MasterChef, an ActivityTracker, and convenience scripts to deploy, mint BFL, and add liquidity.
+
+This repository contains a small Uniswap-v2 style DEX prototype deployed on the Monad network (chainId 143). It includes token contracts, a factory/pair implementation, a router, a MasterChef, an ActivityTracker, and convenience scripts to deploy, mint BFL, and add liquidity.
 
 This README documents:
 - Project overview
@@ -22,6 +23,7 @@ This prototype demonstrates:
 - An ERC-20 token (MDX) for the DEX governance/rewards
 - A BitcoinFlash token (BFL) used as a token in a pair with USDC
 - UniswapV2-style `UniswapV2Factory` + `UniswapV2Pair` pair contracts
+- `UniswapV2Router02` for convenient liquidity and swap operations
 - `MasterChef` for staking/rewards (MDX)
 - `ActivityTracker` (prototype usage)
 - Scripts (ethers v6) for minting BFL and adding liquidity through the pair contract
@@ -30,6 +32,7 @@ This prototype demonstrates:
 Deployed addresses (from your recent deploy)
 - MDXToken: 0x66238b63532509A9c9C2440DE341fd2335794a07
 - Factory: 0x759774EbC4d5C5c83a255A14A25464cAD9dc4B3F
+- Router: 0x7139332aa7C461bfC6463586D0fbf5A7cdEf5324
 - Pair MDX-USDC: 0x72eEC70b6058bAc9c726cAA08cc02406aC1d7E23
 - Pair BitcoinFlash-USDC: 0x57489A99059A41464fE9322864E3B241D96c5d62
 - MasterChef: 0x8Dd025006D20aE484E9ac03D044fAaBA952D321F
@@ -38,9 +41,10 @@ Deployed addresses (from your recent deploy)
 ---
 
 ## Repo files (important)
-- `script/Deploy.s.sol` — Foundry deploy script (deploys MDX, Factory, pairs, MasterChef, ActivityTracker)
+- `script/Deploy.s.sol` — Foundry deploy script (deploys MDX, Factory, Router, pairs, MasterChef, ActivityTracker)
 - `src/MDXToken.sol` — MDX token (ERC20 + ownership)
 - `src/UniswapV2Factory.sol` — Factory contract (createPair, getPair)
+- `src/UniswapV2Router02.sol` — Router contract (addLiquidity, swapExactTokensForTokens, etc.)
 - `src/UniswapV2Pair.sol` — Pair contract (mint, getReserves, LP accounting)
 - `src/MasterChef.sol` — Staking / rewards contract
 - `src/ActivityTracker.sol` — Activity tracker helper contract
@@ -59,6 +63,7 @@ Example:
 RPC_URL="https://monad-mainnet.g.alchemy.com/v2/<YOUR_ALCHEMY_KEY>"
 PRIVATE_KEY="0xYOUR_PRIVATE_KEY"          # signer used for deploy and scripts (keep secret)
 FACTORY_ADDRESS="0x759774EbC4d5C5c83a255A14A25464cAD9dc4B3F"
+ROUTER_ADDRESS="0x7139332aa7C461bfC6463586D0fbf5A7cdEf5324"
 USDC_ADDRESS="0x754704Bc059F8C67012fEd69BC8A327a5aafb603"
 BITCOIN_FLASH_ADDRESS="0x7d7E0112d2763c98238aF7cebEAe33d53F3F76DD"
 RECIPIENT="0x592B35c8917eD36c39Ef73D0F5e92B0173560b2e"   # optional; defaults to signer
@@ -93,6 +98,15 @@ Important functions:
 - getPair(address tokenA, address tokenB) -> address — returns pair address (ZeroAddress if not exists)
 
 Usage: `Deploy.s.sol` creates two pairs (MDX/USDC and BitcoinFlash/USDC).
+
+### UniswapV2Router02 (src/UniswapV2Router02.sol)
+Important functions:
+- constructor(address factory, address WETH) — set factory and WETH addresses
+- addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) -> (uint amountA, uint amountB, uint liquidity) — add liquidity to a pair
+- swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] path, address to, uint deadline) -> uint[] amounts — swap exact tokens for tokens
+- getAmountsOut(uint amountIn, address[] path) -> uint[] amounts — get output amounts for a swap
+
+Usage: The router provides a convenient interface for adding liquidity and swapping tokens. It handles token transfers and pair creation automatically.
 
 ### UniswapV2Pair (src/UniswapV2Pair.sol)
 Important functions:
@@ -133,6 +147,7 @@ export RPC_URL="https://monad-mainnet.g.alchemy.com/v2/<KEY>"
 export PRIVATE_KEY="0xYOUR_PRIVATE_KEY"
 export USDC_ADDRESS="0x754704Bc059F8C67012fEd69BC8A327a5aafb603"
 export BITCOIN_FLASH_ADDRESS="0x7d7E0112d2763c98238aF7cebEAe33d53F3F76DD"
+export ROUTER_ADDRESS="0x7139332aa7C461bfC6463586D0fbf5A7cdEf5324"
 export NFT_ADDRESS="0x1eE15cdB9D241fe7e182259F5513ff89f9165b6F"
 ```
 - Run Foundry deploy:
@@ -188,7 +203,7 @@ cast abi-encode "constructor(address)" 0x592B35... > factory_ctor.hex
 Submitted Sourcify verification with `forge verify-contract`:
 ```bash
 forge verify-contract --rpc-url https://rpc.monad.xyz --verifier sourcify --verifier-url 'https://sourcify-api-monad.blockvision.org/' --chain-id 143 --constructor-args mdx_ctor.hex 0x6623... src/MDXToken.sol:MDXToken
-# ... similarly for pair, factory, activity tracker
+# ... similarly for pair, factory, router, activity tracker
 ```
 
 You can check job status via the Sourcify job URLs returned by `forge` (the commands printed verification job IDs and URLs).
