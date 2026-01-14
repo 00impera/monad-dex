@@ -2094,10 +2094,12 @@ label {
             <div class="token-input">
               <img id="fromLogo" class="token-logo" src="https://files.catbox.moe/ujzf30.gif" alt="USDC logo" />
               <input id="fromAmount" type="number" placeholder="0.0" step="any" />
-              <select id="fromToken">
-                <option value="USDC">USDC</option>
-                <option value="BFL">BFL</option>
-                <option value="MDX">MDX</option>
+              <select id="toToken">
+              <option value="BFL">BFL</option>
+              <option value="USDC">USDC</option>
+              <option value="MDX">MDX</option>
+              <option value="GOLD">GOLD</option>
+              <option value="DRAGON">DRAGON</option>
               </select>
               <div style="margin-left: auto;" class="small">Balance: <span id="fromBalance">-</span></div>
             </div>
@@ -2116,11 +2118,14 @@ label {
             <div class="token-input">
               <img id="toLogo" class="token-logo" src="https://files.catbox.moe/lk7mrk.png" alt="BFL logo" />
               <input id="toAmount" type="text" placeholder="0.0" readonly />
-              <select id="toToken">
-                <option value="BFL">BFL</option>
-                <option value="USDC">USDC</option>
-                <option value="MDX">MDX</option>
-              </select>
+             <select id="fromToken">
+             <option value="USDC">USDC</option>
+             <option value="BFL">BFL</option>
+             <option value="MDX">MDX</option>
+             <option value="GOLD">GOLD</option>
+             <option value="DRAGON">DRAGON</option>
+             </select>
+             
               <div style="margin-left: auto;" class="small">Balance: <span id="toBalance">-</span></div>
             </div>
           </div>
@@ -2204,15 +2209,24 @@ label {
             <div class="small">Net P/L</div>
           </div>
 
-          <div style="margin-top: 12px;" class="small">
+           <div style="margin-top: 12px;" class="small">
             Total value: <span id="portfolioValue" class="stat">-</span>
-          </div>
-          <div style="margin-top: 8px;" class="small">
-            USDC: <span id="balanceUSDC" class="stat">-</span>
-          </div>
-          <div style="margin-top: 6px;" class="small">
-            BFL: <span id="balanceBFL" class="stat">-</span>
-          </div>
+           </div>
+         <div style="margin-top: 8px;" class="small">
+         USDC: <span id="balanceUSDC" class="stat">-</span>
+       </div>
+        <div style="margin-top: 6px;" class="small">
+        BFL: <span id="balanceBFL" class="stat">-</span>
+       </div>
+       <div style="margin-top: 6px;" class="small">
+        MDX: <span id="balanceMDX" class="stat">-</span>
+       </div>
+      <div style="margin-top: 6px;" class="small">
+       GOLD: <span id="balanceGOLD" class="stat">-</span>
+       </div>
+        <div style="margin-top: 6px;" class="small">
+        DRAGON: <span id="balanceDRAGON" class="stat">-</span>
+         </div>
 
           <button id="refreshPortfolio" class="btn btn-ghost" style="margin-top: 12px; width: 100%;">
             Refresh Balances
@@ -2237,18 +2251,23 @@ label {
             <div class="small">Quick select</div>
           </div>
 
-          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
-            <button class="btn btn-ghost pair-btn" data-pair="USDC-BFL" style="width: 100%;">
-              USDC / BFL
-            </button>
-            <button class="btn btn-ghost pair-btn" data-pair="BFL-USDC" style="width: 100%;">
-              BFL / USDC
-            </button>
-            <button class="btn btn-ghost pair-btn" data-pair="USDC-MDX" style="width: 100%;">
-              USDC / MDX
-            </button>
+         <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+         <button class="btn btn-ghost pair-btn" data-pair="USDC-BFL" style="width: 100%;">
+           USDC / BFL
+          </button>
+          <button class="btn btn-ghost pair-btn" data-pair="BFL-USDC" style="width: 100%;">
+           BFL / USDC
+          <button>
+          <button class="btn btn-ghost pair-btn" data-pair="USDC-MDX" style="width: 100%;">
+           USDC / MDX
+          </button>
+          <button class="btn btn-ghost pair-btn" data-pair="USDC-GOLD" style="width: 100%;">
+           USDC / GOLD
+          </button>
+          <button class="btn btn-ghost pair-btn" data-pair="USDC-DRAGON" style="width: 100%;">
+           USDC / DRAGON
+          </button>
           </div>
-        </div>
 
         <!-- CHAIN ACTIVITY CARD -->
         <div class="card chrome-rim" style="margin-bottom: 12px;">
@@ -2388,19 +2407,25 @@ function formatAmount(amount, decimals) {
     }
 
     /* Get token logo URL */
-    function getTokenLogo(address) {
-      const addr = address.toLowerCase();
-      if (addr === ADDRESSES.USDC.toLowerCase()) {
-        return "https://files.catbox.moe/ujzf30.gif";
-      }
-      if (addr === ADDRESSES.BFL.toLowerCase()) {
-        return "https://files.catbox.moe/lk7mrk.png";
-      }
-      if (addr === ADDRESSES.MDX.toLowerCase()) {
-        return "https://files.catbox.moe/g3f9h8.png";
-      }
-      return "https://files.catbox.moe/ujzf30.gif";
-    }
+   function getTokenLogo(address) {
+  const addr = address.toLowerCase();
+  if (addr === ADDRESSES.USDC.toLowerCase()) {
+    return "https://files.catbox.moe/ujzf30.gif";
+  }
+  if (addr === ADDRESSES.BFL.toLowerCase()) {
+    return "https://files.catbox.moe/lk7mrk.png";
+  }
+  if (addr === ADDRESSES.MDX.toLowerCase()) {
+    return "https://files.catbox.moe/g3f9h8.png";
+  }
+  if (addr === ADDRESSES.GOLD.toLowerCase()) {
+    return "https://files.catbox.moe/phcdln.png";
+  }
+  if (addr === ADDRESSES.DRAGON.toLowerCase()) {
+    return "https://files.catbox.moe/bb1fsy.png";
+  }
+  return "https://files.catbox.moe/ujzf30.gif";
+}
 
     /* Check if valid number */
     function isValidNumber(val) {
@@ -2472,6 +2497,8 @@ const ADDRESSES = {
   USDC: "0x754704bc059f8c67012fed69bc8a327a5aafb603",
   BFL: "0x7d7e0112d2763c98238af7cebeae33d53f3f76dd",
   MDX: "0x66238b63532509a9c9c2440de341fd2335794a07",
+  GOLD: "0x3E459BeA2A3Efab22Ce12358E672dD31A9594D34",
+  DRAGON: "0x1b685B0c771b877d1a4e8F02365a4A809E962c81",
   PAIR_USDC_BFL: "0x57489a99059a41464fe9322864e3b241d96c5d62",
   ROUTER: "0x7139332aa7C461bfC6463586D0fbf5A7cdEf5324"  
 };
@@ -2479,7 +2506,9 @@ const ADDRESSES = {
 const TOKENS_MAP = {
   "USDC": ADDRESSES.USDC,
   "BFL": ADDRESSES.BFL,
-  "MDX": ADDRESSES.MDX
+  "MDX": ADDRESSES.MDX,
+  "GOLD": ADDRESSES.GOLD,
+  "DRAGON": ADDRESSES.DRAGON
 };
 
 CONFIG.TOKENS = TOKENS_MAP;
@@ -2746,18 +2775,27 @@ async function loadBalances() {
     const provider = window.readProvider;
     const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, provider);
     const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, provider);
+    const goldContract = new ethers.Contract(ADDRESSES.GOLD, ABIS.ERC20, provider);
+    const dragonContract = new ethers.Contract(ADDRESSES.DRAGON, ABIS.ERC20, provider);
 
-    const [usdcBal, bflBal] = await Promise.all([
+    const [usdcBal, bflBal, goldBal, dragonBal] = await Promise.all([
       usdcContract.balanceOf(userAddress),
-      bflContract.balanceOf(userAddress)
+      bflContract.balanceOf(userAddress),
+      goldContract.balanceOf(userAddress),
+      dragonContract.balanceOf(userAddress)
     ]);
 
     const usdcFormatted = formatAmount(usdcBal, 6);
     const bflFormatted = formatAmount(bflBal, 18);
+    const goldFormatted = formatAmount(goldBal, 18);
+    const dragonFormatted = formatAmount(dragonBal, 18);
 
+    // Update all balance displays
     const els = {
       balanceUSDC: usdcFormatted,
       balanceBFL: bflFormatted,
+      balanceGOLD: goldFormatted,
+      balanceDRAGON: dragonFormatted,
       fromBalance: usdcFormatted,
       toBalance: bflFormatted,
       portfolioValue: `$${formatNumber(usdcFormatted)}`
