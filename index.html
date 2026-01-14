@@ -2138,24 +2138,33 @@ label {
                           border: 1px solid var(--border-primary);" />
           </div>
 
-          <!-- Action buttons -->
-          <div style="margin-top: 12px; display: flex; gap: 8px;">
-            <button id="approveBtn" class="btn btn-ghost">Approve</button>
-            <button id="swapBtn" class="btn btn-primary">Swap</button>
-            <button id="refreshBalances" class="btn btn-ghost" title="Refresh balances & reserves">
-              🔄
-            </button>
-          </div>
+        <!-- Action buttons -->
+<div style="margin-top: 12px; display: flex; gap: 8px;">
+  <button id="approveBtn" class="btn btn-ghost">Approve</button>
+  <button id="swapBtn" class="btn btn-primary">Swap</button>
+  <button id="refreshBalances" class="btn btn-ghost" title="Refresh balances & reserves">
+    🔄
+  </button>
+</div>
 
-          <!-- Logs -->
-          <div style="margin-top: 12px;">
-            <div class="small">Logs</div>
-            <pre id="logDisplay" style="background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.62));
-                                         padding: 10px; border-radius: 8px; max-height: 200px;
-                                         overflow: auto; white-space: pre-wrap; font-size: 12px;
-                                         border: 1px solid rgba(0,230,255,0.04);">Ready.</pre>
-          </div>
-        </div>
+<!-- Swap Path Indicator -->
+<div id="swapPathInfo" style="margin-top: 12px; padding: 8px 12px; 
+                              border-radius: 8px; border: 1px solid var(--border-secondary);
+                              background: rgba(0, 229, 255, 0.05); display: none;">
+  <div class="small" style="color: var(--cyan-300);">
+    <span style="margin-right: 8px;">🔄</span>
+    <span id="swapPathText">Route: Loading...</span>
+  </div>
+</div>
+
+<!-- Logs -->
+<div style="margin-top: 12px;">
+  <div class="small">Logs</div>
+  <pre id="logDisplay" style="background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.62));
+                               padding: 10px; border-radius: 8px; max-height: 200px;
+                               overflow: auto; white-space: pre-wrap; font-size: 12px;
+                               border: 1px solid rgba(0,230,255,0.04);">Ready.</pre>
+</div>
 
         <!-- LIQUIDITY CARD -->
         <div class="card" style="margin-bottom: 12px;">
@@ -2750,23 +2759,6 @@ async function connectWallet() {
   }
 }
 
-// Auto-connect
-async function autoConnectWallet() {
-  if (!window.ethereum) return;
-
-  try {
-    const accounts = await window.ethereum.request({
-      method: "eth_accounts"
-    });
-
-    if (accounts && accounts.length > 0) {
-      await connectWallet();
-    }
-  } catch (err) {
-    console.debug("Auto-connect failed:", err);
-  }
-}
-
 // Load balances
 async function loadBalances() {
   if (!userAddress) return;
@@ -2775,18 +2767,21 @@ async function loadBalances() {
     const provider = window.readProvider;
     const usdcContract = new ethers.Contract(ADDRESSES.USDC, ABIS.ERC20, provider);
     const bflContract = new ethers.Contract(ADDRESSES.BFL, ABIS.ERC20, provider);
+    const mdxContract = new ethers.Contract(ADDRESSES.MDX, ABIS.ERC20, provider);
     const goldContract = new ethers.Contract(ADDRESSES.GOLD, ABIS.ERC20, provider);
     const dragonContract = new ethers.Contract(ADDRESSES.DRAGON, ABIS.ERC20, provider);
 
-    const [usdcBal, bflBal, goldBal, dragonBal] = await Promise.all([
+    const [usdcBal, bflBal, mdxBal, goldBal, dragonBal] = await Promise.all([
       usdcContract.balanceOf(userAddress),
       bflContract.balanceOf(userAddress),
+      mdxContract.balanceOf(userAddress),
       goldContract.balanceOf(userAddress),
       dragonContract.balanceOf(userAddress)
     ]);
 
     const usdcFormatted = formatAmount(usdcBal, 6);
     const bflFormatted = formatAmount(bflBal, 18);
+    const mdxFormatted = formatAmount(mdxBal, 18);
     const goldFormatted = formatAmount(goldBal, 18);
     const dragonFormatted = formatAmount(dragonBal, 18);
 
@@ -2794,6 +2789,7 @@ async function loadBalances() {
     const els = {
       balanceUSDC: usdcFormatted,
       balanceBFL: bflFormatted,
+      balanceMDX: mdxFormatted,
       balanceGOLD: goldFormatted,
       balanceDRAGON: dragonFormatted,
       fromBalance: usdcFormatted,
@@ -3039,37 +3035,107 @@ function calculateOutput(amountIn, fromToken, toToken) {
 }
 
 /**
- * Update output estimate when input changes
+ * Update output estimate when input changes - WITH MULTI-HOP ROUTING
+ * Calculates expected output amount based on selected tokens and input
  */
 async function updateOutputEstimate() {
   try {
+    // Get input values
     const fromToken = $("fromToken")?.value;
     const toToken = $("toToken")?.value;
     const amountIn = $("fromAmount")?.value;
 
+    // Validate input amount
     if (!isValidNumber(amountIn)) {
       if ($("toAmount")) $("toAmount").value = "";
       return;
     }
 
+    // Get token addresses
     const fromAddr = getTokenAddress(fromToken);
     const toAddr = getTokenAddress(toToken);
+    
+    if (!fromAddr || !toAddr) {
+      log("Invalid token addresses", "error");
+      if ($("toAmount")) $("toAmount").value = "";
+      return;
+    }
+
+    // Prevent same-token swaps
+    if (fromAddr.toLowerCase() === toAddr.toLowerCase()) {
+      log("Cannot swap same token", "warning");
+      if ($("toAmount")) $("toAmount").value = "";
+      return;
+    }
+
+    // Get token decimals
     const fromDec = await getDecimals(fromAddr, window.readProvider);
     const toDec = await getDecimals(toAddr, window.readProvider);
-
     const amountInBig = parseAmount(amountIn, fromDec);
 
-   
-    const router = new ethers.Contract(ADDRESSES.ROUTER, ABIS.ROUTER, window.readProvider);
-    const path = [fromAddr, toAddr];
-    const amounts = await router.getAmountsOut(amountInBig, path);
-    const output = amounts[1];
+    // Initialize router contract
+    const router = new ethers.Contract(
+      ADDRESSES.ROUTER,
+      ABIS.ROUTER,
+      window.readProvider
+    );
 
+    const usdcAddr = ADDRESSES.USDC.toLowerCase();
+    const bflAddr = ADDRESSES.BFL.toLowerCase();
+    
+    // ✨ BUILD SMART PATH - Route through USDC/BFL if needed
+    let path;
+    
+    const fromAddrLower = fromAddr.toLowerCase();
+    const toAddrLower = toAddr.toLowerCase();
+
+    // Check for direct pair (USDC ↔ BFL only)
+    const isDirect = (
+      (fromAddrLower === usdcAddr && toAddrLower === bflAddr) ||
+      (fromAddrLower === bflAddr && toAddrLower === usdcAddr)
+    );
+
+    if (isDirect) {
+      // Direct swap: USDC ↔ BFL
+      path = [fromAddr, toAddr];
+      log("✓ Direct swap: " + fromToken + " → " + toToken, "debug");
+    } else if (fromAddrLower === usdcAddr) {
+      // From USDC to other token: USDC → BFL → Target
+      path = [fromAddr, ADDRESSES.BFL, toAddr];
+      log("✓ Multi-hop: " + fromToken + " → BFL → " + toToken, "debug");
+    } else if (toAddrLower === usdcAddr) {
+      // To USDC from other token: Source → BFL → USDC
+      path = [fromAddr, ADDRESSES.BFL, toAddr];
+      log("✓ Multi-hop: " + fromToken + " → BFL → " + toToken, "debug");
+    } else if (fromAddrLower === bflAddr) {
+      // From BFL to other: BFL → USDC → Target
+      path = [fromAddr, ADDRESSES.USDC, toAddr];
+      log("✓ Multi-hop: " + fromToken + " → USDC → " + toToken, "debug");
+    } else if (toAddrLower === bflAddr) {
+      // To BFL from other: Source → USDC → BFL
+      path = [fromAddr, ADDRESSES.USDC, toAddr];
+      log("✓ Multi-hop: " + fromToken + " → USDC → " + toToken, "debug");
+    } else {
+      // Both non-USDC/BFL: Source → USDC → Target (shortest path)
+      path = [fromAddr, ADDRESSES.USDC, toAddr];
+      log("✓ Multi-hop: " + fromToken + " → USDC → " + toToken, "debug");
+    }
+
+    // Get amounts out from router
+    const amounts = await router.getAmountsOut(amountInBig, path);
+    const output = amounts[amounts.length - 1]; // Last amount in the path
+
+    // Update UI with formatted output
     if ($("toAmount")) {
       $("toAmount").value = formatAmount(output, toDec);
     }
+
+    // Display swap path visually
+    displaySwapPath(fromToken, toToken, path);
+
   } catch (err) {
     console.error("updateOutputEstimate error:", err);
+    log("Could not estimate output: " + getErrorMessage(err), "warning");
     if ($("toAmount")) $("toAmount").value = "";
   }
 }
@@ -3150,7 +3216,7 @@ async function handleApprove() {
    ================== */
 
 /**
- * Execute swap using Router (SAFER METHOD)
+ * Execute swap using Router with Multi-Hop Support
  */
 async function handleSwap() {
   if (txInProgress) {
@@ -3190,22 +3256,63 @@ async function handleSwap() {
 
     const fromAddr = getTokenAddress(fromToken);
     const toAddr = getTokenAddress(toToken);
+    
+    if (!fromAddr || !toAddr) {
+      log("Invalid token addresses", "error");
+      return;
+    }
+
     const fromDec = await getDecimals(fromAddr, window.readProvider);
     const toDec = await getDecimals(toAddr, window.readProvider);
-
     const amountInBig = parseAmount(amountIn, fromDec);
 
-    // ✨ USE ROUTER TO GET EXPECTED OUTPUT
+    // ✨ BUILD SMART PATH - Route through USDC/BFL if needed
     const router = new ethers.Contract(ADDRESSES.ROUTER, ABIS.ROUTER, window.readProvider);
-    const path = [fromAddr, toAddr];
+    const usdcAddr = ADDRESSES.USDC;
+    const bflAddr = ADDRESSES.BFL;
+
+    let path;
+
+    // Check if direct pair exists (USDC ↔ BFL only)
+    const isDirect = (
+      (fromAddr.toLowerCase() === usdcAddr.toLowerCase() && toAddr.toLowerCase() === bflAddr.toLowerCase()) ||
+      (fromAddr.toLowerCase() === bflAddr.toLowerCase() && toAddr.toLowerCase() === usdcAddr.toLowerCase())
+    );
+
+    if (isDirect) {
+      // Direct swap: USDC ↔ BFL
+      path = [fromAddr, toAddr];
+      log(`✓ Direct swap path: ${fromToken} → ${toToken}`, "info");
+    } else if (fromAddr.toLowerCase() === usdcAddr.toLowerCase()) {
+      // From USDC to other token: USDC → BFL → Target
+      path = [fromAddr, bflAddr, toAddr];
+      log(`✓ Multi-hop path: ${fromToken} → BFL → ${toToken}`, "info");
+    } else if (toAddr.toLowerCase() === usdcAddr.toLowerCase()) {
+      // To USDC from other token: Source → BFL → USDC
+      path = [fromAddr, bflAddr, toAddr];
+      log(`✓ Multi-hop path: ${fromToken} → BFL → ${toToken}`, "info");
+    } else {
+      // Both non-USDC: Source → USDC → Target
+      path = [fromAddr, usdcAddr, toAddr];
+      log(`✓ Multi-hop path: ${fromToken} → USDC → ${toToken}`, "info");
+    }
+
+    // Show warning for multi-hop swaps
+    if (path.length > 2) {
+      log(`⚠️ Multi-hop swap: ${path.length - 1} hops - Higher slippage expected`, "warning");
+    }
+
+    // Get expected output amounts
     const amounts = await router.getAmountsOut(amountInBig, path);
-    const expectedOut = amounts[1];
+    const expectedOut = amounts[amounts.length - 1]; // Last amount in the path
 
     // Calculate minimum output with slippage
-    const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
+    // Use higher slippage tolerance for multi-hop swaps
+    const effectiveSlippage = path.length > 2 ? slippage * 1.5 : slippage;
+    const minOut = (expectedOut * BigInt(Math.floor((100 - effectiveSlippage) * 100))) / 10000n;
 
     log("Expected output: " + formatAmount(expectedOut, toDec) + " " + toToken, "debug");
-    log("Minimum output (with " + slippage + "% slippage): " + formatAmount(minOut, toDec) + " " + toToken, "debug");
+    log("Minimum output (with " + effectiveSlippage.toFixed(1) + "% slippage): " + formatAmount(minOut, toDec) + " " + toToken, "debug");
 
     // Ensure using injected signer if available
     await preferInjectedSignerIfAvailable();
@@ -3241,6 +3348,9 @@ async function handleSwap() {
     log("✅ Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
     log("Transaction: " + swapTx.hash, "debug");
 
+log("✅ Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+    log("Transaction: " + swapTx.hash, "debug");
+
     // Refresh balances and reserves
     await Promise.all([
       loadBalances(),
@@ -3253,7 +3363,20 @@ async function handleSwap() {
 
   } catch (err) {
     if (!isUserRejection(err) && !isPendingRequest(err)) {
-      log("Swap failed: " + getErrorMessage(err), "error");
+      const errorMsg = getErrorMessage(err);
+      
+      // Provide helpful error messages
+      if (errorMsg.includes("INSUFFICIENT_OUTPUT_AMOUNT")) {
+        log("❌ Swap failed: Slippage too low. Try increasing slippage tolerance.", "error");
+      } else if (errorMsg.includes("INSUFFICIENT_LIQUIDITY")) {
+        log("❌ Swap failed: Not enough liquidity in pool.", "error");
+      } else if (errorMsg.includes("INSUFFICIENT_INPUT_AMOUNT")) {
+        log("❌ Swap failed: Amount too small.", "error");
+      } else if (errorMsg.includes("EXPIRED")) {
+        log("❌ Swap failed: Transaction expired. Please try again.", "error");
+      } else {
+        log("Swap failed: " + errorMsg, "error");
+      }
     }
     console.error("handleSwap error:", err);
 
@@ -3268,7 +3391,6 @@ async function handleSwap() {
 /* ==================
    SWAP FLIP
    ================== */
-
 /**
  * Flip from/to tokens
  */
@@ -3277,29 +3399,69 @@ function handleSwapFlip() {
   const toTokenEl = $("toToken");
   const fromAmountEl = $("fromAmount");
   const toAmountEl = $("toAmount");
-
   if (!fromTokenEl || !toTokenEl) return;
-
   const fromVal = fromTokenEl.value;
   const toVal = toTokenEl.value;
-
   fromTokenEl.value = toVal;
   toTokenEl.value = fromVal;
-
   updateTokenLogos();
-
   if (fromAmountEl) fromAmountEl.value = "";
   if (toAmountEl) toAmountEl.value = "";
-
   if (isWalletConnected()) loadBalances();
-
   log("Swapped token direction", "debug");
+}
+
+/**
+ * Display swap route to user with proper multi-hop visualization
+ */
+function displaySwapPath(fromToken, toToken, path) {
+  const pathInfo = document.getElementById("swapPathInfo");
+  const pathText = document.getElementById("swapPathText");
+  
+  if (!pathInfo || !pathText) {
+    console.warn("Path display elements not found");
+    return;
+  }
+  
+  // Direct swap - hide path info
+  if (path.length <= 2) {
+    pathInfo.style.display = "none";
+    console.log("Direct swap - hiding path info");
+    return;
+  }
+  
+  // Multi-hop swap - show path
+  pathInfo.style.display = "block";
+  
+  // Build token symbol array
+  const tokenSymbols = [fromToken];
+  
+  for (let i = 1; i < path.length - 1; i++) {
+    const addr = path[i].toLowerCase();
+    let symbol = "???";
+    
+    if (addr === ADDRESSES.USDC.toLowerCase()) symbol = "USDC";
+    else if (addr === ADDRESSES.BFL.toLowerCase()) symbol = "BFL";
+    else if (addr === ADDRESSES.MDX.toLowerCase()) symbol = "MDX";
+    else if (addr === ADDRESSES.GOLD.toLowerCase()) symbol = "GOLD";
+    else if (addr === ADDRESSES.DRAGON.toLowerCase()) symbol = "DRAGON";
+    
+    tokenSymbols.push(symbol);
+  }
+  
+  tokenSymbols.push(toToken);
+  
+  const hopCount = path.length - 1;
+  const hopLabel = hopCount === 1 ? "hop" : "hops";
+  const routeText = `Route: ${tokenSymbols.join(" → ")} (${hopCount} ${hopLabel})`;
+  
+  pathText.textContent = routeText;
+  console.log("Displaying route:", routeText);
 }
 
 /* ==================
    LIQUIDITY FUNCTIONS (STUBS)
    ================== */
-
 /**
  * Mint BFL (owner only)
  */
@@ -3314,10 +3476,34 @@ async function handleAddLiquidity() {
   log("Add liquidity action is not enabled in this build.", "warning");
 }
 
+/**
+ * Auto-connect wallet if previously connected
+ */
+async function autoConnectWallet() {
+  try {
+    if (window.ethereum) {
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts"
+      });
+      
+      if (accounts && accounts.length > 0) {
+        walletProvider = new ethers.BrowserProvider(window.ethereum);
+        signer = await walletProvider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        log("✓ Auto-connected: " + shortenAddress(userAddress), "debug");
+        updateWalletUI();
+        await loadBalances();
+      }
+    }
+  } catch (err) {
+    console.debug("Auto-connect failed:", err);
+  }
+}
+
 /* ==================
    REFRESH FUNCTIONS
    ================== */
-
 /**
  * Refresh all data (balances + reserves)
  */
@@ -3333,13 +3519,13 @@ async function refreshAll() {
     log("Refresh failed: " + getErrorMessage(err), "error");
   }
 }
+
 /* ==================
    FLIP SWAP TOKENS
    ================== */
 /* ==================
    EXPORT FUNCTIONS
    ================== */
-
 /**
  * Get current pair cache
  * @returns {Object} Pair cache object
