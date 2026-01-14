@@ -1944,11 +1944,27 @@ label {
 .hover-glow:hover {
   box-shadow: 0 0 50px rgba(0, 229, 255, 0.4);
 }
-  </style>
+</style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="container">
+
+    <!-- Mobile Wallet Notice -->
+    <div id="mobileNotice" style="display: none; background: rgba(180, 0, 255, 0.1); 
+                                   border: 1px solid rgba(180, 0, 255, 0.3); 
+                                   border-radius: 12px; padding: 16px; margin-bottom: 16px; 
+                                   text-align: center;">
+      <div style="margin-bottom: 8px; font-weight: 600; color: var(--purple-400);">
+        📱 Mobile Wallet Required
+      </div>
+      <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px;">
+        To use this DEX on mobile, please open it in MetaMask's in-app browser
+      </div>
+      <button id="openInMetaMask" class="btn btn-secondary">
+        Open in MetaMask
+      </button>
+    </div>
 
     <!-- ==================
          HEADER / TOP BAR
@@ -2609,6 +2625,11 @@ async function disconnectWallet() {
   }
 }
 
+// Detect if user is on mobile
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // Connect wallet
 async function connectWallet() {
   if (isConnecting) {
@@ -2625,9 +2646,36 @@ async function connectWallet() {
 
   try {
     log("Connecting wallet...", "info");
-    console.info("wallet debug:", { hasEthereum: !!window.ethereum, isMetaMask: !!(window.ethereum && window.ethereum.isMetaMask), userAgent: navigator.userAgent });
-    if (!window.ethereum) { alert("No injected wallet found. Install MetaMask or use a supported wallet."); }
+    
+    // Check if we're on mobile
+    const mobile = isMobile();
+    
+    // On mobile, try to deep link to MetaMask if no provider is found
+    if (mobile && !window.ethereum) {
+      log("Opening MetaMask mobile app...", "info");
+      
+      // Get current page URL
+      const dappUrl = window.location.href.replace(/\/$/, '');
+      
+      // Create MetaMask deep link
+      const metamaskAppDeepLink = `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, '')}`;
+      
+      // Show instructions
+      const shouldOpen = confirm(
+        "MetaMask wallet not detected.\n\n" +
+        "Please install MetaMask mobile app, then click OK to open this page in MetaMask browser.\n\n" +
+        "Or, if you already have MetaMask installed, open the app and browse to this page."
+      );
+      
+      if (shouldOpen) {
+        // Open MetaMask app
+        window.location.href = metamaskAppDeepLink;
+      }
+      
+      throw new Error("Please open this page in MetaMask mobile browser");
+    }
 
+    // Desktop or mobile with injected wallet
     if (window.ethereum) {
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts"
@@ -2642,6 +2690,16 @@ async function connectWallet() {
         updateWalletUI();
         await loadBalances();
         return;
+      }
+    } else if (!mobile) {
+      // Desktop without wallet - show install instructions
+      const shouldInstall = confirm(
+        "No wallet detected.\n\n" +
+        "Click OK to install MetaMask browser extension."
+      );
+      
+      if (shouldInstall) {
+        window.open("https://metamask.io/download/", "_blank");
       }
     }
 
@@ -3579,6 +3637,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     log("🚀 Monad DEX initializing...", "info");
     
+    // Show mobile notice if on mobile without wallet
+    if (isMobile() && !window.ethereum) {
+      const notice = document.getElementById("mobileNotice");
+      if (notice) {
+        notice.style.display = "block";
+        
+        // Setup "Open in MetaMask" button
+        const openBtn = document.getElementById("openInMetaMask");
+        if (openBtn) {
+          openBtn.onclick = () => {
+            const dappUrl = window.location.href.replace(/\/$/, '');
+            const metamaskAppDeepLink = `https://metamask.app.link/dapp/${dappUrl.replace(/^https?:\/\//, '')}`;
+            window.location.href = metamaskAppDeepLink;
+          };
+        }
+      }
+    } else if (window.ethereum) {
+      // Hide notice if wallet is available
+      const notice = document.getElementById("mobileNotice");
+      if (notice) notice.style.display = "none";
+    }
+    
     // Initialize RPC provider with retries
     try {
       await initReadProvider();
@@ -3618,7 +3698,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("Initialization failed:", err);
   }
 });
-
 // Setup all event listeners
 function setupEventListeners() {
   // Token selection
