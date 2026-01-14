@@ -263,8 +263,3 @@ If you want, I can add the following helper files to the repo:
 - `scripts/verifyStatuses.sh` — polls Sourcify verification job statuses and prints result
 - `scripts/rotate-key.md` — step-by-step instructions to create a new key, transfer funds, and secure the repo
 
-Tell me which helper(s) you want added and I will create them.
-
----
-
-If you'd like any changes to this README (different format, more contract ABI details, or to include actual code snippets from each contract), tell me what to include and I'll update it.
