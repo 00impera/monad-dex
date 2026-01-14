@@ -2456,8 +2456,8 @@ const ADDRESSES = {
   USDC: "0x754704bc059f8c67012fed69bc8a327a5aafb603",
   BFL: "0x7d7e0112d2763c98238af7cebeae33d53f3f76dd",
   MDX: "0x66238b63532509a9c9c2440de341fd2335794a07",
-  PAIR_USDC_BFL: "0x57489a99059a41464fe9322864e3b241d96c5d62"
-
+  PAIR_USDC_BFL: "0x57489a99059a41464fe9322864e3b241d96c5d62",
+  ROUTER: "0x7139332aa7C461bfC6463586D0fbf5A7cdEf5324"  
 };
 
 const TOKENS_MAP = {
@@ -2470,39 +2470,45 @@ CONFIG.TOKENS = TOKENS_MAP;
 
 // Alias for backward compatibility
 ADDRESSES.PAIR = ADDRESSES.PAIR_USDC_BFL;
-    const ABIS = {
-      ERC20: [
-        "function balanceOf(address account) view returns (uint256)",
-        "function decimals() view returns (uint8)",
-        "function symbol() view returns (string)",
-        "function name() view returns (string)",
-        "function approve(address spender, uint256 value) returns (bool)",
-        "function allowance(address owner, address spender) view returns (uint256)",
-        "function transfer(address to, uint256 amount) returns (bool)",
-        "function transferFrom(address from, address to, uint256 amount) returns (bool)",
-        "function totalSupply() view returns (uint256)"
-      ],
-      PAIR: [
-        "function getReserves() view returns (uint112, uint112)",
-        "function token0() view returns (address)",
-        "function token1() view returns (address)",
-        "function balanceOf(address account) view returns (uint256)",
-        "function approve(address spender, uint256 value) returns (bool)",
-        "function transfer(address to, uint256 amount) returns (bool)",
-        "function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes data)",
-        "function mint(address to) returns (uint256 liquidity)",
-        "function burn(address to) returns (uint256 amount0, uint256 amount1)",
-        "function decimals() view returns (uint8)",
-        "function symbol() view returns (string)",
-        "function name() view returns (string)",
-        "function totalSupply() view returns (uint256)",
-        "function transferFrom(address from, address to, uint256 amount) returns (bool)"
-      ],
-      ROUTER: [
-        "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) returns (uint[] memory amounts)"
-      ]
-    };
 
+const ABIS = {
+  ERC20: [
+    "function balanceOf(address account) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+    "function symbol() view returns (string)",
+    "function name() view returns (string)",
+    "function approve(address spender, uint256 value) returns (bool)",
+    "function allowance(address owner, address spender) view returns (uint256)",
+    "function transfer(address to, uint256 amount) returns (bool)",
+    "function transferFrom(address from, address to, uint256 amount) returns (bool)",
+    "function totalSupply() view returns (uint256)"
+  ],
+  PAIR: [
+    "function getReserves() view returns (uint112, uint112)",
+    "function token0() view returns (address)",
+    "function token1() view returns (address)",
+    "function balanceOf(address account) view returns (uint256)",
+    "function approve(address spender, uint256 value) returns (bool)",
+    "function transfer(address to, uint256 amount) returns (bool)",
+    "function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes data)",
+    "function mint(address to) returns (uint256 liquidity)",
+    "function burn(address to) returns (uint256 amount0, uint256 amount1)",
+    "function decimals() view returns (uint8)",
+    "function symbol() view returns (string)",
+    "function name() view returns (string)",
+    "function totalSupply() view returns (uint256)",
+    "function transferFrom(address from, address to, uint256 amount) returns (bool)"
+  ],
+  ROUTER: [
+    "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) returns (uint[] memory amounts)",
+    "function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) returns (uint amountA, uint amountB, uint liquidity)",
+    "function removeLiquidity(address tokenA, address tokenB, uint liquidity, uint amountAMin, uint amountBMin, address to, uint deadline) returns (uint amountA, uint amountB)",
+    "function getAmountsOut(uint amountIn, address[] memory path) view returns (uint[] memory amounts)",
+    "function quote(uint amountA, uint reserveA, uint reserveB) pure returns (uint amountB)",
+    "function factory() view returns (address)",
+    "function WETH() view returns (address)"
+  ]
+};
 // Create read provider with fallback
 let readProvider;
 async function initReadProvider() {
@@ -2939,7 +2945,7 @@ function calculateOutput(amountIn, fromToken, toToken) {
 /**
  * Update output estimate when input changes
  */
-function updateOutputEstimate() {
+async function updateOutputEstimate() {
   try {
     const fromToken = $("fromToken")?.value;
     const toToken = $("toToken")?.value;
@@ -2950,22 +2956,18 @@ function updateOutputEstimate() {
       return;
     }
 
-    const output = calculateOutput(amountIn, fromToken, toToken);
-
-    if (!output || output === 0n) {
-      if ($("toAmount")) $("toAmount").value = "";
-      return;
-    }
-
+    const fromAddr = getTokenAddress(fromToken);
     const toAddr = getTokenAddress(toToken);
-    if (!toAddr) {
-      if ($("toAmount")) $("toAmount").value = "";
-      return;
-    }
+    const fromDec = await getDecimals(fromAddr, window.readProvider);
+    const toDec = await getDecimals(toAddr, window.readProvider);
 
-    const toAddrLower = toAddr.toLowerCase();
-    const toDec = (pairCache.token0 === toAddrLower ? pairCache.dec0 :
-                   (pairCache.token1 === toAddrLower ? pairCache.dec1 : 18));
+    const amountInBig = parseAmount(amountIn, fromDec);
+
+   
+    const router = new ethers.Contract(ADDRESSES.ROUTER, ABIS.ROUTER, window.readProvider);
+    const path = [fromAddr, toAddr];
+    const amounts = await router.getAmountsOut(amountInBig, path);
+    const output = amounts[1];
 
     if ($("toAmount")) {
       $("toAmount").value = formatAmount(output, toDec);
@@ -2975,7 +2977,6 @@ function updateOutputEstimate() {
     if ($("toAmount")) $("toAmount").value = "";
   }
 }
-
 // Debounced version for input events
 const debouncedUpdateOutput = debounce(updateOutputEstimate, 300);
 
@@ -3024,8 +3025,7 @@ async function handleApprove() {
 
     const tokenContract = new ethers.Contract(tokenAddr, ABIS.ERC20, getSigner());
 
-    const tx = await tokenContract.approve(ADDRESSES.PAIR_USDC_BFL, amount);
-
+   const tx = await tokenContract.approve(ADDRESSES.ROUTER, amount); 
     log("Approval pending: " + tx.hash.slice(0, 10) + "...", "debug");
 
     await tx.wait();
@@ -3054,7 +3054,7 @@ async function handleApprove() {
    ================== */
 
 /**
- * Execute swap
+ * Execute swap using Router (SAFER METHOD)
  */
 async function handleSwap() {
   if (txInProgress) {
@@ -3098,43 +3098,52 @@ async function handleSwap() {
     const toDec = await getDecimals(toAddr, window.readProvider);
 
     const amountInBig = parseAmount(amountIn, fromDec);
-    const expectedOut = calculateOutput(amountIn, fromToken, toToken);
+
+    // ✨ USE ROUTER TO GET EXPECTED OUTPUT
+    const router = new ethers.Contract(ADDRESSES.ROUTER, ABIS.ROUTER, window.readProvider);
+    const path = [fromAddr, toAddr];
+    const amounts = await router.getAmountsOut(amountInBig, path);
+    const expectedOut = amounts[1];
 
     // Calculate minimum output with slippage
     const minOut = (expectedOut * BigInt(Math.floor((100 - slippage) * 100))) / 10000n;
 
-    log("Transferring " + fromToken + " to pair...", "debug");
+    log("Expected output: " + formatAmount(expectedOut, toDec) + " " + toToken, "debug");
+    log("Minimum output (with " + slippage + "% slippage): " + formatAmount(minOut, toDec) + " " + toToken, "debug");
 
     // Ensure using injected signer if available
     await preferInjectedSignerIfAvailable();
 
-    // Step 1: Transfer tokens to pair
+    // ✨ STEP 1: Approve Router (not pair)
+    log("Checking allowance...", "debug");
     const tokenContract = new ethers.Contract(fromAddr, ABIS.ERC20, getSigner());
-    const transferTx = await tokenContract.transfer(ADDRESSES.PAIR_USDC_BFL, amountInBig);
+    const allowance = await tokenContract.allowance(getUserAddress(), ADDRESSES.ROUTER);
 
-    log("Transfer submitted: " + transferTx.hash.slice(0, 10) + "...", "debug");
-    await transferTx.wait();
-
-    log("Executing swap...", "debug");
-
-    // Step 2: Call swap on pair
-    const pair = new ethers.Contract(ADDRESSES.PAIR_USDC_BFL, ABIS.PAIR, getSigner());
-
-    let amount0Out = 0n;
-    let amount1Out = 0n;
-
-    if (toAddr.toLowerCase() === pairCache.token0) {
-      amount0Out = minOut;
-    } else {
-      amount1Out = minOut;
+    if (allowance < amountInBig) {
+      log("Approving Router...", "info");
+      const approveTx = await tokenContract.approve(ADDRESSES.ROUTER, amountInBig);
+      await approveTx.wait();
+      log("✅ Router approved", "info");
     }
 
-    const swapTx = await pair.swap(amount0Out, amount1Out, getUserAddress(), "0x");
+    // ✨ STEP 2: Execute swap through Router
+    log("Executing swap via Router...", "debug");
+    const routerWithSigner = new ethers.Contract(ADDRESSES.ROUTER, ABIS.ROUTER, getSigner());
+    const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minutes
+
+    const swapTx = await routerWithSigner.swapExactTokensForTokens(
+      amountInBig,
+      minOut,
+      path,
+      getUserAddress(),
+      deadline
+    );
 
     log("Swap pending: " + swapTx.hash.slice(0, 10) + "...", "debug");
-    await swapTx.wait();
+    const receipt = await swapTx.wait();
 
     log("✅ Swap complete! Got ~" + formatAmount(expectedOut, toDec) + " " + toToken, "info");
+    log("Transaction: " + swapTx.hash, "debug");
 
     // Refresh balances and reserves
     await Promise.all([
@@ -3160,7 +3169,6 @@ async function handleSwap() {
     }
   }
 }
-
 /* ==================
    SWAP FLIP
    ================== */
