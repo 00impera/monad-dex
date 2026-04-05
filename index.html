@@ -10,6 +10,120 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Mono:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
   <title>MONAD DEX — Neon Terminal</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- ============================================================
+       thirdweb ConnectButton (universal wallet modal)
+       CDN embed — works with MetaMask, WalletConnect, Coinbase,
+       Rainbow, Zerion, Trust, Phantom, Rabby, Safe, and more.
+  ============================================================ -->
+  <script type="module">
+    import { createThirdwebClient, defineChain } from "https://esm.sh/thirdweb@5";
+    import { createWallet, walletConnect, inAppWallet } from "https://esm.sh/thirdweb@5/wallets";
+    import { ConnectButton } from "https://esm.sh/thirdweb@5/react";
+
+    // ── Thirdweb client (replace with your own client ID for production) ──
+    window.__TW_CLIENT_ID__ = "39d5688409d060364e2d612723c14984";
+
+    const monad = defineChain({
+      id: 143,
+      name: "Monad Mainnet",
+      nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+      rpc: "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk",
+    });
+
+    const client = createThirdwebClient({ clientId: window.__TW_CLIENT_ID__ });
+
+    // Supported wallets list
+    const wallets = [
+      createWallet("io.metamask"),
+      createWallet("com.coinbase.wallet"),
+      walletConnect(),
+      inAppWallet({
+        auth: { options: ["email", "google", "apple", "facebook"] }
+      }),
+      createWallet("me.rainbow"),
+      createWallet("io.zerion.wallet"),
+      createWallet("com.trustwallet.app"),
+      createWallet("app.phantom"),
+      createWallet("io.rabby"),
+      createWallet("app.safe"),
+    ];
+
+    // Expose to window for non-module scripts
+    window.__TW_CLIENT__  = client;
+    window.__TW_CHAIN__   = monad;
+    window.__TW_WALLETS__ = wallets;
+
+    // ── Mount the ConnectButton into the #tw-connect-root div ──
+    // We render it via innerHTML/custom element pattern since this is vanilla HTML.
+    // The button fires the wallet modal when clicked and keeps state internally.
+    window.__mountTWConnect = async function () {
+      // Dynamic import of React + ReactDOM (thirdweb ships its own tiny copy)
+      const { createElement } = await import("https://esm.sh/react@18");
+      const { createRoot }    = await import("https://esm.sh/react-dom@18/client");
+      const { ConnectButton } = await import("https://esm.sh/thirdweb@5/react");
+      const { ThirdwebProvider } = await import("https://esm.sh/thirdweb@5/react");
+
+      const root = document.getElementById("tw-connect-root");
+      if (!root) return;
+
+      const App = () =>
+        createElement(
+          ThirdwebProvider,
+          null,
+          createElement(ConnectButton, {
+            client,
+            chain: monad,
+            wallets,
+            connectButton: {
+              label: "Connect Wallet",
+              style: {
+                background: "linear-gradient(135deg, #00c8c2 0%, rgba(0,200,200,0.8) 100%)",
+                color: "#04050f",
+                border: "1px solid #00fff7",
+                boxShadow: "0 0 8px #00fff7, 0 0 20px #00fff760",
+                fontFamily: "'Rajdhani', sans-serif",
+                fontWeight: 900,
+                fontSize: "13px",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                borderRadius: "8px",
+                padding: "9px 20px",
+                cursor: "pointer",
+              },
+            },
+            detailsButton: {
+              style: {
+                background: "rgba(0,255,247,0.08)",
+                color: "#00fff7",
+                border: "1px solid rgba(0,255,247,0.45)",
+                fontFamily: "'Space Mono', monospace",
+                fontSize: "11px",
+                borderRadius: "8px",
+                padding: "7px 14px",
+                cursor: "pointer",
+              },
+            },
+            onConnect: (w) => {
+              window.__onTWConnect(w);
+            },
+            onDisconnect: () => {
+              window.__onTWDisconnect();
+            },
+          })
+        );
+
+      createRoot(root).render(createElement(App));
+    };
+
+    // Fire after DOM ready
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", window.__mountTWConnect);
+    } else {
+      window.__mountTWConnect();
+    }
+  </script>
+
   <style>
 
 /* ============================================
@@ -17,15 +131,12 @@
    ============================================ */
 
 :root {
-  /* Deep space backgrounds */
   --bg-void: #04050f;
   --bg-primary: #070a18;
   --bg-secondary: #0d1228;
   --bg-elevated: #131830;
   --bg-input: #0a0d1f;
   --bg-card: rgba(13, 18, 40, 0.85);
-
-  /* Neon core palette */
   --neon-cyan: #00fff7;
   --neon-cyan-dim: #00c8c2;
   --neon-purple: #d400ff;
@@ -34,52 +145,35 @@
   --neon-green: #39ff14;
   --neon-yellow: #ffe600;
   --neon-orange: #ff6600;
-
-  /* Glow effects */
   --glow-cyan: 0 0 8px #00fff7, 0 0 20px #00fff760, 0 0 40px #00fff730;
   --glow-purple: 0 0 8px #d400ff, 0 0 20px #d400ff60, 0 0 40px #d400ff30;
   --glow-pink: 0 0 8px #ff00c8, 0 0 20px #ff00c860;
   --glow-green: 0 0 8px #39ff14, 0 0 20px #39ff1460;
-
-  /* Text */
   --text-primary: #e8f4ff;
   --text-secondary: #99b8d8;
   --text-muted: #4a6a8a;
   --text-disabled: #2a3a50;
-
-  /* Borders */
   --border-dim: rgba(0,255,247,0.08);
   --border-mid: rgba(0,255,247,0.18);
   --border-bright: rgba(0,255,247,0.45);
   --border-purple: rgba(212,0,255,0.35);
-
-  /* Fonts */
   --font-display: 'Orbitron', monospace;
   --font-ui: 'Rajdhani', sans-serif;
   --font-mono: 'Space Mono', monospace;
-
-  /* Spacing */
   --s1: 6px; --s2: 12px; --s3: 18px; --s4: 24px;
   --s5: 32px; --s6: 48px;
-
-  /* Radius */
   --r-sm: 4px; --r-md: 8px; --r-lg: 14px; --r-xl: 20px;
-
-  /* Transitions */
   --tx-fast: 120ms cubic-bezier(0.4,0,0.2,1);
   --tx-base: 220ms cubic-bezier(0.4,0,0.2,1);
   --tx-slow: 400ms cubic-bezier(0.4,0,0.2,1);
-
   --sidebar-width: 360px;
   --header-h: 68px;
 }
 
-/* =================== RESET =================== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-font-smoothing: antialiased; }
 html, body { height: 100%; overflow-x: hidden; }
 
-/* =================== BODY =================== */
 body {
   font-family: var(--font-ui);
   font-size: 15px;
@@ -96,7 +190,6 @@ body {
   user-select: none;
 }
 
-/* Animated noise grid overlay */
 body::before {
   content: "";
   position: fixed;
@@ -109,36 +202,21 @@ body::before {
   z-index: 0;
 }
 
-/* Scanline effect */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.03) 2px,
-    rgba(0,0,0,0.03) 4px
-  );
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
   pointer-events: none;
   z-index: 0;
 }
 
-.container {
-  max-width: 1440px;
-  margin: 0 auto;
-  position: relative;
-  z-index: 1;
-}
+.container { max-width: 1440px; margin: 0 auto; position: relative; z-index: 1; }
 
-/* =================== TYPOGRAPHY =================== */
 input, select, textarea, button { font-family: var(--font-ui); }
 pre, code { font-family: var(--font-mono); }
-
 h1, h2, h3, h4, h5, h6 { margin: 0; font-family: var(--font-display); }
 
-/* =================== INPUTS =================== */
 input, select, textarea {
   background: transparent;
   border: 0;
@@ -154,7 +232,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 input, select, textarea { -webkit-user-select: text; user-select: text; }
 select option { background: var(--bg-elevated); color: var(--text-primary); }
 
-/* =================== SCROLLBARS =================== */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-secondary); }
 ::-webkit-scrollbar-thumb {
@@ -164,7 +241,7 @@ select option { background: var(--bg-elevated); color: var(--text-primary); }
 * { scrollbar-width: thin; scrollbar-color: var(--neon-cyan-dim) var(--bg-secondary); }
 ::selection { background: var(--neon-cyan); color: var(--bg-void); }
 
-/* =================== HEADER =================== */
+/* ── HEADER ── */
 header {
   display: flex;
   align-items: center;
@@ -178,10 +255,7 @@ header {
   backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border-mid);
   border-top: 1px solid rgba(0,255,247,0.3);
-  box-shadow:
-    0 0 0 1px rgba(0,255,247,0.04),
-    0 8px 40px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(0,255,247,0.08);
+  box-shadow: 0 0 0 1px rgba(0,255,247,0.04), 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(0,255,247,0.08);
   flex-wrap: wrap;
   position: relative;
   overflow: hidden;
@@ -196,20 +270,9 @@ header::before {
   animation: header-scan 4s linear infinite;
 }
 
-@keyframes header-scan {
-  0%   { opacity: 0.3; }
-  50%  { opacity: 1; }
-  100% { opacity: 0.3; }
-}
+@keyframes header-scan { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
 
-/* Logo */
-.logo-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  flex-shrink: 0;
-}
-
+.logo-wrap { display: flex; align-items: center; gap: var(--s2); flex-shrink: 0; }
 .logo-gem {
   width: 44px; height: 44px;
   border-radius: var(--r-md);
@@ -221,14 +284,12 @@ header::before {
   animation: logo-pulse 3s ease-in-out infinite;
   flex-shrink: 0;
 }
-
 @keyframes logo-pulse {
   0%, 100% { box-shadow: var(--glow-cyan); }
   50% { box-shadow: var(--glow-purple); }
 }
 
 .header-title-block { display: flex; flex-direction: column; gap: 2px; }
-
 .dex-title {
   font-family: var(--font-display);
   font-size: clamp(12px, 1.5vw, 18px);
@@ -242,20 +303,10 @@ header::before {
   animation: title-shimmer 4s linear infinite;
   background-size: 200% 100%;
 }
+@keyframes title-shimmer { 0% { background-position: 0% 0%; } 100% { background-position: 200% 0%; } }
 
-@keyframes title-shimmer {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 200% 0%; }
-}
+.dex-subtitle { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; }
 
-.dex-subtitle {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-  letter-spacing: 0.05em;
-}
-
-/* Price Badge */
 .price-badge {
   font-family: var(--font-mono);
   font-size: 13px;
@@ -269,37 +320,12 @@ header::before {
   animation: price-flicker 5s ease-in-out infinite;
   white-space: nowrap;
 }
+@keyframes price-flicker { 0%, 90%, 100% { opacity: 1; } 92% { opacity: 0.7; } 94% { opacity: 1; } }
 
-@keyframes price-flicker {
-  0%, 90%, 100% { opacity: 1; }
-  92% { opacity: 0.7; }
-  94% { opacity: 1; }
-}
+.header-right { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.ctrl-block { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ctrl-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 0.12em; text-transform: uppercase; }
 
-/* Header controls */
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  flex-wrap: wrap;
-}
-
-.ctrl-block {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.ctrl-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-/* Chain selector */
 #chainSelector {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -312,9 +338,7 @@ header::before {
   transition: all var(--tx-base);
 }
 #chainSelector:hover { border-color: var(--border-bright); box-shadow: var(--glow-cyan); }
-#chainSelector:focus { border-color: var(--neon-cyan); box-shadow: var(--glow-cyan); outline: none; }
 
-/* Gas tracker */
 .gas-tracker {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -323,9 +347,7 @@ header::before {
   border-radius: var(--r-sm);
   background: rgba(57,255,20,0.05);
   border: 1px solid rgba(57,255,20,0.2);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: flex; align-items: center; gap: 6px;
 }
 
 .gas-dot {
@@ -335,62 +357,62 @@ header::before {
   box-shadow: var(--glow-green);
   animation: blink 1.2s ease-in-out infinite;
 }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+/* ── thirdweb connect button host ── */
+#tw-connect-root {
+  display: flex;
+  align-items: center;
+}
+/* Override thirdweb's modal z-index to float above DEX UI */
+#tw-connect-root tw-connect-wallet,
+[data-rk],
+.tw-connect-wallet__modal {
+  z-index: 9999 !important;
 }
 
-/* Wallet display */
-#walletDisplay {
+/* Wallet info badge shown after connection */
+#walletInfoBadge {
+  display: none;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--neon-cyan);
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  background: rgba(0,255,247,0.06);
+  border: 1px solid var(--border-bright);
+  box-shadow: var(--glow-cyan);
+}
+#walletInfoBadge .w-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--neon-green);
+  box-shadow: var(--glow-green);
+  animation: blink 1.2s ease-in-out infinite;
 }
 
-/* RPC Status */
 .rpc-status {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: flex; align-items: center; gap: 4px;
 }
 
-/* =================== BUTTONS =================== */
-button {
-  font-family: var(--font-ui);
-  cursor: pointer;
-  border: none;
-  background: none;
-  color: inherit;
-  -webkit-appearance: none;
-  appearance: none;
-  transition: all var(--tx-base);
-}
+/* ── BUTTONS ── */
+button { font-family: var(--font-ui); cursor: pointer; border: none; background: none; color: inherit; -webkit-appearance: none; appearance: none; transition: all var(--tx-base); }
 button:disabled { cursor: not-allowed; opacity: 0.4; }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 9px 20px;
-  border-radius: var(--r-md);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  position: relative;
-  overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 9px 20px; border-radius: var(--r-md);
+  font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; white-space: nowrap;
+  position: relative; overflow: hidden;
 }
-
-/* Shine sweep on hover */
 .btn::after {
-  content: "";
-  position: absolute;
+  content: ""; position: absolute;
   top: 0; left: -100%; width: 60%; height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
   transition: left 0.4s ease;
@@ -404,10 +426,7 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   box-shadow: var(--glow-cyan), inset 0 1px 0 rgba(255,255,255,0.2);
   font-weight: 900;
 }
-.btn-primary:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 0 16px var(--neon-cyan), 0 0 40px rgba(0,255,247,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
-}
+.btn-primary:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 16px var(--neon-cyan), 0 0 40px rgba(0,255,247,0.5), inset 0 1px 0 rgba(255,255,255,0.3); }
 .btn-primary:active { transform: translateY(0) scale(0.98); }
 
 .btn-secondary {
@@ -416,39 +435,23 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   border: 1px solid var(--neon-purple);
   box-shadow: var(--glow-purple);
 }
-.btn-secondary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 16px var(--neon-purple), 0 0 40px rgba(212,0,255,0.5);
-}
+.btn-secondary:hover { transform: translateY(-2px); box-shadow: 0 0 16px var(--neon-purple), 0 0 40px rgba(212,0,255,0.5); }
 
 .btn-ghost {
   background: rgba(0,255,247,0.04);
   color: var(--text-secondary);
   border: 1px solid var(--border-mid);
 }
-.btn-ghost:hover {
-  background: rgba(0,255,247,0.08);
-  border-color: var(--border-bright);
-  color: var(--neon-cyan);
-  box-shadow: var(--glow-cyan);
-  transform: translateY(-1px);
-}
-.btn-ghost.active {
-  background: rgba(0,255,247,0.12);
-  border-color: var(--neon-cyan);
-  color: var(--neon-cyan);
-  box-shadow: var(--glow-cyan);
-}
+.btn-ghost:hover { background: rgba(0,255,247,0.08); border-color: var(--border-bright); color: var(--neon-cyan); box-shadow: var(--glow-cyan); transform: translateY(-1px); }
+.btn-ghost.active { background: rgba(0,255,247,0.12); border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: var(--glow-cyan); }
 
 .btn-sm { padding: 6px 12px; font-size: 11px; }
 
 .btn.loading { color: transparent; pointer-events: none; }
 .btn.loading::before {
-  content: "";
-  position: absolute;
+  content: ""; position: absolute;
   width: 16px; height: 16px;
-  top: 50%; left: 50%;
-  margin: -8px 0 0 -8px;
+  top: 50%; left: 50%; margin: -8px 0 0 -8px;
   border: 2px solid rgba(255,255,255,0.2);
   border-top-color: var(--neon-cyan);
   border-radius: 50%;
@@ -456,7 +459,7 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* =================== CARDS =================== */
+/* ── CARDS ── */
 .card {
   background: var(--bg-card);
   backdrop-filter: blur(20px) saturate(160%);
@@ -467,350 +470,158 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   overflow: hidden;
   transition: border-color var(--tx-base), box-shadow var(--tx-base);
 }
-
 .card::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
+  content: ""; position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent 0%, rgba(0,255,247,0.4) 50%, transparent 100%);
-  opacity: 0;
-  transition: opacity var(--tx-slow);
+  opacity: 0; transition: opacity var(--tx-slow);
 }
 .card:hover::before { opacity: 1; }
-.card:hover {
-  border-color: var(--border-mid);
-  box-shadow: 0 0 30px rgba(0,255,247,0.05), 0 8px 40px rgba(0,0,0,0.5);
-}
+.card:hover { border-color: var(--border-mid); box-shadow: 0 0 30px rgba(0,255,247,0.05), 0 8px 40px rgba(0,0,0,0.5); }
 
 .card-glow {
   border-color: var(--border-bright);
   border-top: 1px solid rgba(0,255,247,0.6);
-  box-shadow:
-    var(--glow-cyan),
-    0 0 60px rgba(0,255,247,0.08) inset,
-    0 12px 50px rgba(0,0,0,0.7);
+  box-shadow: var(--glow-cyan), 0 0 60px rgba(0,255,247,0.08) inset, 0 12px 50px rgba(0,0,0,0.7);
   animation: card-breathe 4s ease-in-out infinite;
 }
-
 @keyframes card-breathe {
   0%, 100% { box-shadow: var(--glow-cyan), 0 0 40px rgba(0,255,247,0.06) inset, 0 12px 50px rgba(0,0,0,0.7); }
   50% { box-shadow: var(--glow-purple), 0 0 60px rgba(212,0,255,0.08) inset, 0 12px 50px rgba(0,0,0,0.7); }
 }
 
-.card-title {
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  color: var(--neon-cyan);
-  text-transform: uppercase;
-}
+.card-title { font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: 0.15em; color: var(--neon-cyan); text-transform: uppercase; }
+.card-sub { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 0.06em; margin-top: 2px; }
 
-.card-sub {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  letter-spacing: 0.06em;
-  margin-top: 2px;
-}
+/* ── LAYOUT ── */
+.main-grid { display: grid; grid-template-columns: 1fr var(--sidebar-width); gap: var(--s4); align-items: start; }
 
-/* =================== MAIN LAYOUT =================== */
-.main-grid {
-  display: grid;
-  grid-template-columns: 1fr var(--sidebar-width);
-  gap: var(--s4);
-  align-items: start;
-}
-
-/* =================== TOKEN INPUT =================== */
+/* ── TOKEN INPUT ── */
 .token-input-wrap {
   background: rgba(0,0,0,0.4);
   border: 1px solid var(--border-mid);
   border-radius: var(--r-md);
   padding: 12px var(--s3);
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
+  display: flex; align-items: center; gap: var(--s2);
   min-height: 62px;
   transition: all var(--tx-base);
 }
-
-.token-input-wrap:hover {
-  border-color: var(--border-bright);
-  background: rgba(0,0,0,0.5);
-}
-
-.token-input-wrap:focus-within {
-  border-color: var(--neon-cyan);
-  box-shadow: 0 0 0 2px rgba(0,255,247,0.1), var(--glow-cyan);
-}
+.token-input-wrap:hover { border-color: var(--border-bright); background: rgba(0,0,0,0.5); }
+.token-input-wrap:focus-within { border-color: var(--neon-cyan); box-shadow: 0 0 0 2px rgba(0,255,247,0.1), var(--glow-cyan); }
 
 .token-logo {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--border-mid);
-  box-shadow: 0 0 8px rgba(0,255,247,0.2);
-  flex-shrink: 0;
-  transition: all var(--tx-base);
+  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+  border: 1px solid var(--border-mid); box-shadow: 0 0 8px rgba(0,255,247,0.2);
+  flex-shrink: 0; transition: all var(--tx-base);
 }
 .token-logo:hover { transform: scale(1.15); box-shadow: var(--glow-cyan); }
 
 .token-input-wrap input {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  min-width: 0;
-  background: transparent;
+  flex: 1; font-family: var(--font-mono); font-size: 20px; font-weight: 700;
+  color: var(--text-primary); min-width: 0; background: transparent;
 }
-
 .token-input-wrap select {
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--neon-cyan);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border-dim);
-  transition: all var(--tx-fast);
+  font-family: var(--font-display); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.1em; color: var(--neon-cyan); background: transparent;
+  border: none; cursor: pointer; padding: 4px 6px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-dim); transition: all var(--tx-fast);
 }
-.token-input-wrap select:hover {
-  border-color: var(--border-bright);
-  background: rgba(0,255,247,0.05);
-}
+.token-input-wrap select:hover { border-color: var(--border-bright); background: rgba(0,255,247,0.05); }
 .token-input-wrap select:focus { outline: none; border-color: var(--neon-cyan); }
 
-.balance-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+.balance-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 
-/* =================== SWAP FLIP BUTTON =================== */
 #swapFlip {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: rgba(0,255,247,0.06);
-  border: 1px solid var(--border-mid);
-  font-size: 18px;
-  display: flex; align-items: center; justify-content: center;
-  margin: 6px auto;
-  transition: all var(--tx-base);
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(0,255,247,0.06); border: 1px solid var(--border-mid);
+  font-size: 18px; display: flex; align-items: center; justify-content: center;
+  margin: 6px auto; transition: all var(--tx-base);
 }
-#swapFlip:hover {
-  transform: rotate(180deg);
-  border-color: var(--neon-cyan);
-  background: rgba(0,255,247,0.12);
-  box-shadow: var(--glow-cyan);
-}
+#swapFlip:hover { transform: rotate(180deg); border-color: var(--neon-cyan); background: rgba(0,255,247,0.12); box-shadow: var(--glow-cyan); }
 
-/* =================== LABELS =================== */
 label, .field-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  display: block; font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
 }
 
-/* =================== STATS / BADGES =================== */
 .stat {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--neon-cyan);
-  padding: 3px 8px;
-  background: rgba(0,255,247,0.06);
-  border: 1px solid var(--border-dim);
-  border-radius: var(--r-sm);
-  display: inline-block;
+  font-family: var(--font-mono); font-size: 12px; color: var(--neon-cyan);
+  padding: 3px 8px; background: rgba(0,255,247,0.06);
+  border: 1px solid var(--border-dim); border-radius: var(--r-sm); display: inline-block;
 }
-
 .stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border-dim);
-  font-family: var(--font-mono);
-  font-size: 11px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; border-bottom: 1px solid var(--border-dim);
+  font-family: var(--font-mono); font-size: 11px;
 }
 .stat-row:last-child { border-bottom: none; }
 .stat-row .label { color: var(--text-muted); }
 .stat-row .value { color: var(--neon-cyan); }
 
-/* =================== CHART =================== */
 .chart-wrap {
-  height: 320px;
-  position: relative;
-  border-radius: var(--r-md);
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 100%);
-  border: 1px solid var(--border-dim);
-  margin-bottom: var(--s3);
+  height: 320px; position: relative; border-radius: var(--r-md);
+  overflow: hidden; background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 100%);
+  border: 1px solid var(--border-dim); margin-bottom: var(--s3);
 }
-
 .chart-wrap::after {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), transparent);
   animation: chart-scan 3s linear infinite;
 }
-
-@keyframes chart-scan {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-
+@keyframes chart-scan { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 #priceChart { width: 100% !important; height: 100% !important; }
 
-/* =================== LOGS =================== */
 #logDisplay {
-  background: rgba(0,0,0,0.6);
-  padding: var(--s2) var(--s3);
-  border-radius: var(--r-md);
-  border: 1px solid var(--border-dim);
-  border-left: 2px solid var(--neon-cyan);
-  color: var(--neon-cyan);
-  max-height: 160px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  font-size: 11px;
-  line-height: 1.7;
+  background: rgba(0,0,0,0.6); padding: var(--s2) var(--s3);
+  border-radius: var(--r-md); border: 1px solid var(--border-dim);
+  border-left: 2px solid var(--neon-cyan); color: var(--neon-cyan);
+  max-height: 160px; overflow-y: auto; white-space: pre-wrap;
+  font-size: 11px; line-height: 1.7;
 }
 
-/* =================== SWAP PATH =================== */
-#swapPathInfo {
-  padding: 8px 12px;
-  border-radius: var(--r-md);
-  border: 1px solid rgba(0,255,247,0.15);
-  background: rgba(0,255,247,0.04);
-  display: none;
-}
+#swapPathInfo { padding: 8px 12px; border-radius: var(--r-md); border: 1px solid rgba(0,255,247,0.15); background: rgba(0,255,247,0.04); display: none; }
 
-/* =================== SLIPPAGE INPUT =================== */
 #slippageTolerance {
-  width: 90px;
-  padding: 6px 10px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border-mid);
-  background: var(--bg-input);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--neon-yellow);
+  width: 90px; padding: 6px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-mid); background: var(--bg-input);
+  font-family: var(--font-mono); font-size: 12px; color: var(--neon-yellow);
   transition: all var(--tx-base);
 }
-#slippageTolerance:focus {
-  border-color: var(--neon-yellow);
-  box-shadow: 0 0 8px rgba(255,230,0,0.3);
-  outline: none;
-}
+#slippageTolerance:focus { border-color: var(--neon-yellow); box-shadow: 0 0 8px rgba(255,230,0,0.3); outline: none; }
 
-/* =================== LIQUIDITY INPUTS =================== */
 .liq-input {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border-mid);
-  background: var(--bg-input);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-primary);
+  flex: 1; padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-mid); background: var(--bg-input);
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-primary);
   transition: all var(--tx-base);
 }
-.liq-input:focus {
-  border-color: var(--border-bright);
-  box-shadow: 0 0 8px rgba(0,255,247,0.15);
-  outline: none;
-}
+.liq-input:focus { border-color: var(--border-bright); box-shadow: 0 0 8px rgba(0,255,247,0.15); outline: none; }
 
-/* =================== PAIR BUTTONS =================== */
-.pair-btn {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-align: left;
-  justify-content: flex-start;
-  padding: 6px 10px;
-}
+.pair-btn { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-align: left; justify-content: flex-start; padding: 6px 10px; }
+.timeframe-btn { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.15em; padding: 5px 12px; }
 
-/* =================== TIMEFRAME BUTTONS =================== */
-.timeframe-btn {
-  font-family: var(--font-display);
-  font-size: 10px;
-  letter-spacing: 0.15em;
-  padding: 5px 12px;
-}
+#mobileNotice { display: none; background: rgba(212,0,255,0.08); border: 1px solid rgba(212,0,255,0.3); border-radius: var(--r-lg); padding: var(--s4); margin-bottom: var(--s4); text-align: center; }
 
-/* =================== MOBILE NOTICE =================== */
-#mobileNotice {
-  display: none;
-  background: rgba(212,0,255,0.08);
-  border: 1px solid rgba(212,0,255,0.3);
-  border-radius: var(--r-lg);
-  padding: var(--s4);
-  margin-bottom: var(--s4);
-  text-align: center;
-}
+@media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr 300px; } }
+@media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } header { flex-direction: column; align-items: flex-start; gap: var(--s2); } .header-right { width: 100%; justify-content: space-between; } }
+@media (max-width: 560px) { body { padding: var(--s2); } .card { padding: var(--s3); } .chart-wrap { height: 220px; } }
 
-/* =================== RESPONSIVE =================== */
-@media (max-width: 1100px) {
-  .main-grid { grid-template-columns: 1fr 300px; }
-}
-@media (max-width: 900px) {
-  .main-grid { grid-template-columns: 1fr; }
-  header { flex-direction: column; align-items: flex-start; gap: var(--s2); }
-  .header-right { width: 100%; justify-content: space-between; }
-}
-@media (max-width: 560px) {
-  body { padding: var(--s2); }
-  .card { padding: var(--s3); }
-  .chart-wrap { height: 220px; }
-}
-
-/* =================== ANIMATIONS =================== */
 @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 .card { animation: fadeIn 0.4s ease-out both; }
 .card:nth-child(1) { animation-delay: 0ms; }
 .card:nth-child(2) { animation-delay: 80ms; }
 .card:nth-child(3) { animation-delay: 160ms; }
 
-/* VIBRATE effect for key stats */
-@keyframes data-vibrate {
-  0%, 100% { text-shadow: 0 0 6px var(--neon-cyan); }
-  50% { text-shadow: 0 0 18px var(--neon-cyan), 0 0 30px rgba(0,255,247,0.4); }
-}
+@keyframes data-vibrate { 0%, 100% { text-shadow: 0 0 6px var(--neon-cyan); } 50% { text-shadow: 0 0 18px var(--neon-cyan), 0 0 30px rgba(0,255,247,0.4); } }
 .stat { animation: data-vibrate 3s ease-in-out infinite; }
 
-/* Neon border pulse on swap card */
-@keyframes border-dance {
-  0%   { border-color: rgba(0,255,247,0.45); }
-  33%  { border-color: rgba(212,0,255,0.45); }
-  66%  { border-color: rgba(255,0,200,0.45); }
-  100% { border-color: rgba(0,255,247,0.45); }
-}
+@keyframes border-dance { 0% { border-color: rgba(0,255,247,0.45); } 33% { border-color: rgba(212,0,255,0.45); } 66% { border-color: rgba(255,0,200,0.45); } 100% { border-color: rgba(0,255,247,0.45); } }
 .card-glow { animation: border-dance 6s linear infinite, card-breathe 4s ease-in-out infinite; }
 
-/* =================== ACCESSIBILITY =================== */
 :focus-visible { outline: 2px solid var(--neon-cyan); outline-offset: 3px; border-radius: var(--r-sm); }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}
+@media (prefers-reduced-motion: reduce) { *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 
-/* =================== MISC =================== */
 hr { border: 0; height: 1px; background: var(--border-dim); margin: var(--s3) 0; }
 ul, ol { list-style: none; }
 img { display: block; max-width: 100%; height: auto; }
@@ -828,9 +639,8 @@ a:hover { color: #fff; }
       📱 MOBILE WALLET REQUIRED
     </div>
     <div style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
-      Open this DEX inside MetaMask's in-app browser
+      Use the Connect Wallet button — WalletConnect QR code works on mobile.
     </div>
-    <button id="openInMetaMask" class="btn btn-secondary">Open in MetaMask</button>
   </div>
 
   <!-- ===================== HEADER ===================== -->
@@ -872,12 +682,21 @@ a:hover { color: #fff; }
         </div>
       </div>
 
-      <!-- Wallet -->
+      <!-- ═══════════════════════════════════════════════════════
+           thirdweb universal ConnectButton — replaces old button
+           Renders MetaMask / WalletConnect / Coinbase / etc.
+      ═══════════════════════════════════════════════════════ -->
       <div class="ctrl-block">
-        <div id="walletDisplay">Not connected</div>
-        <button id="connectWallet" class="btn btn-primary btn-sm" style="margin-top:4px;">
-          Connect Wallet
-        </button>
+        <span class="ctrl-label">Wallet</span>
+
+        <!-- Connected address badge (shown after connect) -->
+        <div id="walletInfoBadge">
+          <span class="w-dot"></span>
+          <span id="walletShort">—</span>
+        </div>
+
+        <!-- thirdweb ConnectButton mounts here -->
+        <div id="tw-connect-root"></div>
       </div>
 
       <!-- RPC Status -->
@@ -1035,22 +854,19 @@ a:hover { color: #fff; }
           </div>
           <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-muted);">NET P/L</div>
         </div>
-
         <div style="margin-bottom:8px; font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">
           Total: <span id="portfolioValue" class="stat">—</span>
         </div>
-
         <div style="display:flex; flex-direction:column; gap:4px;">
-          <div class="stat-row"><span class="label">USDC</span>    <span class="value" id="balanceUSDC">—</span></div>
-          <div class="stat-row"><span class="label">BFL</span>     <span class="value" id="balanceBFL">—</span></div>
-          <div class="stat-row"><span class="label">MDX</span>     <span class="value" id="balanceMDX">—</span></div>
-          <div class="stat-row"><span class="label">GOLD</span>    <span class="value" id="balanceGOLD">—</span></div>
-          <div class="stat-row"><span class="label">DRAGON</span> <span class="value" id="balanceDRAGON">—</span></div>
-          <div class="stat-row"><span class="label">USDCB</span>  <span class="value" id="balanceUSDCB">—</span></div>
-          <div class="stat-row"><span class="label">EUROGOLD</span><span class="value" id="balanceEUROGOLD">—</span></div>
-          <div class="stat-row"><span class="label">SWAPLESS</span><span class="value" id="balanceSWAPLESS">—</span></div>
+          <div class="stat-row"><span class="label">USDC</span>     <span class="value" id="balanceUSDC">—</span></div>
+          <div class="stat-row"><span class="label">BFL</span>      <span class="value" id="balanceBFL">—</span></div>
+          <div class="stat-row"><span class="label">MDX</span>      <span class="value" id="balanceMDX">—</span></div>
+          <div class="stat-row"><span class="label">GOLD</span>     <span class="value" id="balanceGOLD">—</span></div>
+          <div class="stat-row"><span class="label">DRAGON</span>   <span class="value" id="balanceDRAGON">—</span></div>
+          <div class="stat-row"><span class="label">USDCB</span>    <span class="value" id="balanceUSDCB">—</span></div>
+          <div class="stat-row"><span class="label">EUROGOLD</span> <span class="value" id="balanceEUROGOLD">—</span></div>
+          <div class="stat-row"><span class="label">SWAPLESS</span> <span class="value" id="balanceSWAPLESS">—</span></div>
         </div>
-
         <button id="refreshPortfolio" class="btn btn-ghost" style="width:100%; margin-top:var(--s2); font-size:11px;">
           Refresh Balances
         </button>
@@ -1113,10 +929,10 @@ a:hover { color: #fff; }
           <div style="font-family:var(--font-mono); font-size:9px; color:var(--text-muted);">0x5748…5d62</div>
         </div>
         <div style="display:flex; flex-direction:column; gap:4px;">
-          <div class="stat-row"><span class="label">token0</span><span class="value" id="token0Address">—</span></div>
-          <div class="stat-row"><span class="label">reserve0</span><span class="value" id="reserve0Amount">—</span></div>
-          <div class="stat-row"><span class="label">token1</span><span class="value" id="token1Address">—</span></div>
-          <div class="stat-row"><span class="label">reserve1</span><span class="value" id="reserve1Amount">—</span></div>
+          <div class="stat-row"><span class="label">token0</span>   <span class="value" id="token0Address">—</span></div>
+          <div class="stat-row"><span class="label">reserve0</span> <span class="value" id="reserve0Amount">—</span></div>
+          <div class="stat-row"><span class="label">token1</span>   <span class="value" id="token1Address">—</span></div>
+          <div class="stat-row"><span class="label">reserve1</span> <span class="value" id="reserve1Amount">—</span></div>
         </div>
         <button id="refreshReserves" class="btn btn-ghost" style="width:100%; margin-top:var(--s2); font-size:11px;">
           Refresh Reserves
@@ -1131,98 +947,48 @@ a:hover { color: #fff; }
 <footer id="socialFooter">
   <style>
   #socialFooter {
-    margin-top: 28px;
-    padding: 14px var(--s4);
-    border-radius: var(--r-lg);
-    background: var(--bg-card);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--border-dim);
-    border-top: 1px solid rgba(0,255,247,0.25);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-    flex-wrap: wrap;
-    position: relative;
-    overflow: hidden;
+    margin-top: 28px; padding: 14px var(--s4); border-radius: var(--r-lg);
+    background: var(--bg-card); backdrop-filter: blur(20px);
+    border: 1px solid var(--border-dim); border-top: 1px solid rgba(0,255,247,0.25);
+    display: flex; align-items: center; justify-content: center;
+    gap: 28px; flex-wrap: wrap; position: relative; overflow: hidden;
   }
   #socialFooter::before {
-    content: "";
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
     background: linear-gradient(90deg, transparent 0%, var(--neon-cyan) 30%, var(--neon-purple) 70%, transparent 100%);
     animation: header-scan 4s linear infinite;
   }
   .social-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--font-display);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--text-secondary);
-    text-decoration: none;
-    padding: 7px 14px;
-    border-radius: var(--r-md);
-    border: 1px solid var(--border-dim);
-    background: rgba(0,0,0,0.3);
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; color: var(--text-secondary); text-decoration: none;
+    padding: 7px 14px; border-radius: var(--r-md); border: 1px solid var(--border-dim);
+    background: rgba(0,0,0,0.3); transition: all 0.2s; position: relative; overflow: hidden;
   }
-  .social-link::after {
-    content: "";
-    position: absolute;
-    top: 0; left: -100%; width: 60%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
-    transition: left 0.4s;
-  }
+  .social-link::after { content: ""; position: absolute; top: 0; left: -100%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); transition: left 0.4s; }
   .social-link:hover::after { left: 140%; }
   .social-link:hover { color: #fff; border-color: var(--border-bright); transform: translateY(-2px); }
-  .social-link.x-link:hover     { border-color: #1da1f2; box-shadow: 0 0 12px rgba(29,161,242,0.4); color: #1da1f2; }
-  .social-link.dc-link:hover    { border-color: #5865f2; box-shadow: 0 0 12px rgba(88,101,242,0.4); color: #5865f2; }
-  .social-link.tg-link:hover    { border-color: #29b6f6; box-shadow: 0 0 12px rgba(41,182,246,0.4); color: #29b6f6; }
-  .social-link.mv-link:hover    { border-color: var(--neon-green); box-shadow: 0 0 12px rgba(57,255,20,0.35); color: var(--neon-green); }
+  .social-link.x-link:hover  { border-color: #1da1f2; box-shadow: 0 0 12px rgba(29,161,242,0.4); color: #1da1f2; }
+  .social-link.dc-link:hover { border-color: #5865f2; box-shadow: 0 0 12px rgba(88,101,242,0.4); color: #5865f2; }
+  .social-link.tg-link:hover { border-color: #29b6f6; box-shadow: 0 0 12px rgba(41,182,246,0.4); color: #29b6f6; }
+  .social-link.mv-link:hover { border-color: var(--neon-green); box-shadow: 0 0 12px rgba(57,255,20,0.35); color: var(--neon-green); }
   .social-icon { width: 18px; height: 18px; flex-shrink: 0; }
-  .footer-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--text-muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    padding-right: 8px;
-    border-right: 1px solid var(--border-dim);
-  }
+  .footer-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); letter-spacing: 0.15em; text-transform: uppercase; padding-right: 8px; border-right: 1px solid var(--border-dim); }
   </style>
 
   <span class="footer-label">Community</span>
-
-  <!-- X / Twitter -->
   <a class="social-link x-link" href="https://x.com/bnbgold277983" target="_blank" rel="noopener">
-    <img class="social-icon" src="https://cdn.simpleicons.org/x/1da1f2" alt="X" />
-    @bnbgold277983
+    <img class="social-icon" src="https://cdn.simpleicons.org/x/1da1f2" alt="X" /> @bnbgold277983
   </a>
-
-  <!-- Discord -->
   <a class="social-link dc-link" href="https://discord.com/channels/1316093079090106472" target="_blank" rel="noopener">
-    <img class="social-icon" src="https://cdn.simpleicons.org/discord/5865f2" alt="Discord" />
-    Join Server
+    <img class="social-icon" src="https://cdn.simpleicons.org/discord/5865f2" alt="Discord" /> Join Server
   </a>
-
-  <!-- Telegram -->
   <a class="social-link tg-link" href="https://t.me/eurocoin_monad_bot" target="_blank" rel="noopener">
-    <img class="social-icon" src="https://cdn.simpleicons.org/telegram/29b6f6" alt="Telegram" />
-    Bot
+    <img class="social-icon" src="https://cdn.simpleicons.org/telegram/29b6f6" alt="Telegram" /> Bot
   </a>
-
-  <!-- MonadVision Explorer -->
   <a class="social-link mv-link" href="https://monadvision.com/token/0x592B35c8917eD36c39Ef73D0F5e92B0173560b2e" target="_blank" rel="noopener">
-    <img class="social-icon" src="https://cdn.simpleicons.org/monero/00ff88" alt="MonadVision" />
-    MonadVision Explorer
+    <img class="social-icon" src="https://cdn.simpleicons.org/monero/00ff88" alt="MonadVision" /> MonadVision Explorer
   </a>
-
 </footer>
 
 <!-- ===================== SCRIPTS ===================== -->
@@ -1231,18 +997,13 @@ a:hover { color: #fff; }
 (function () {
 "use strict";
 
-/* ===================== UTILS ===================== */
-function debounce(fn, ms) {
-  let t;
-  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
-}
-
+/* ─────────────────── UTILS ─────────────────── */
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 function $(id) { return document.getElementById(id); }
 
 function log(msg, level = "info") {
   console.log(msg);
-  const el = $("logDisplay");
-  if (!el) return;
+  const el = $("logDisplay"); if (!el) return;
   const ts = new Date().toLocaleTimeString();
   const icon = level === "error" ? "✗" : level === "warning" ? "△" : "›";
   el.textContent += `\n${icon} [${ts}] ${msg}`;
@@ -1272,43 +1033,22 @@ function isPendingReq(err) {
   return m.includes("already pending") || m.includes("request already");
 }
 
-function shortenAddr(addr) {
-  if (!addr) return "";
-  return addr.slice(0, 6) + "…" + addr.slice(-4);
-}
-
-function isMobile() {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
+function shortenAddr(addr) { if (!addr) return ""; return addr.slice(0, 6) + "…" + addr.slice(-4); }
 
 function parseAmt(amount, decimals) {
   if (!amount) return 0n;
-  try { return ethers.parseUnits(String(amount), decimals); }
-  catch { return 0n; }
+  try { return ethers.parseUnits(String(amount), decimals); } catch { return 0n; }
 }
 
 function fmtAmt(amount, decimals) {
-  try { return ethers.formatUnits(amount.toString(), decimals); }
-  catch { return "0"; }
+  try { return ethers.formatUnits(amount.toString(), decimals); } catch { return "0"; }
 }
 
-function fmtNum(n) {
-  const x = typeof n === "string" ? parseFloat(n) : Number(n);
-  if (isNaN(x)) return "0";
-  return x.toLocaleString(undefined, { maximumFractionDigits: 6 });
-}
+function fmtNum(n) { const x = typeof n === "string" ? parseFloat(n) : Number(n); if (isNaN(x)) return "0"; return x.toLocaleString(undefined, { maximumFractionDigits: 6 }); }
+function isValidNum(v) { const n = parseFloat(v); return !isNaN(n) && n > 0; }
 
-function isValidNum(v) {
-  const n = parseFloat(v);
-  return !isNaN(n) && n > 0;
-}
-
-/* ===================== CONFIG ===================== */
-const CONFIG = {
-  RPC: "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk",
-  CHAIN_ID: 143,
-  POLL_MS: 15000
-};
+/* ─────────────────── CONFIG ─────────────────── */
+const CONFIG = { RPC: "https://monad-mainnet.g.alchemy.com/v2/Uwb7T0DbXMQHjiJBNf9_b005qYjLmJqk", CHAIN_ID: 143 };
 
 const ADDR = {
   USDC:    "0x754704bc059f8c67012fed69bc8a327a5aafb603",
@@ -1359,12 +1099,11 @@ const ABIS = {
   ]
 };
 
-/* ===================== STATE ===================== */
+/* ─────────────────── STATE ─────────────────── */
 let readProvider = null;
 let walletProvider = null;
 let signer = null;
 let userAddress = null;
-let isConnecting = false;
 let txInProgress = false;
 
 let pairCache = {
@@ -1373,35 +1112,74 @@ let pairCache = {
   dec0: 18, dec1: 18
 };
 
-/* ===================== PROVIDER ===================== */
+/* ─────────────────── THIRDWEB CALLBACKS ─────────────────── */
+
+/**
+ * Called by the thirdweb ConnectButton (type=module script above) when
+ * a wallet successfully connects.  The `wallet` object from thirdweb v5
+ * exposes an EIP-1193-compatible provider via wallet.getAccount().
+ */
+window.__onTWConnect = async function (wallet) {
+  try {
+    log("thirdweb wallet connected…");
+
+    // Get the EIP-1193 provider from the connected wallet
+    const twProvider = wallet.getProvider ? wallet.getProvider() : null;
+
+    // Prefer thirdweb provider, fall back to window.ethereum
+    const providerSrc = twProvider || window.ethereum;
+    if (!providerSrc) { log("No provider found", "error"); return; }
+
+    walletProvider = new ethers.BrowserProvider(providerSrc);
+    signer = await walletProvider.getSigner();
+    userAddress = await signer.getAddress();
+
+    // Update header wallet badge
+    const badge = $("walletInfoBadge");
+    const short = $("walletShort");
+    if (badge) badge.style.display = "flex";
+    if (short) short.textContent = shortenAddr(userAddress);
+
+    log("✓ Connected: " + shortenAddr(userAddress));
+    await loadBalances();
+  } catch (err) {
+    log("Wallet setup error: " + getErrMsg(err), "error");
+  }
+};
+
+window.__onTWDisconnect = function () {
+  walletProvider = signer = userAddress = null;
+  const badge = $("walletInfoBadge");
+  if (badge) badge.style.display = "none";
+  ["balanceUSDC","balanceBFL","balanceMDX","balanceGOLD","balanceDRAGON","balanceUSDCB",
+   "balanceEUROGOLD","balanceSWAPLESS","fromBalance","toBalance","portfolioValue"].forEach(id => {
+    const el = $(id); if (el) el.textContent = "—";
+  });
+  log("Wallet disconnected");
+};
+
+/* ─────────────────── PROVIDER ─────────────────── */
 async function initReadProvider() {
-  // staticNetwork skips auto-detect and prevents the retry-spam error
   const network = ethers.Network.from({ name: "monad", chainId: CONFIG.CHAIN_ID });
   const prov = new ethers.JsonRpcProvider(CONFIG.RPC, network, { staticNetwork: network });
-  // Quick liveness check with timeout
   await Promise.race([
     prov.getBlockNumber(),
     new Promise((_, rej) => setTimeout(() => rej(new Error("RPC timeout")), 6000))
   ]);
   readProvider = prov;
-
-  const dot = $("rpcDot");
-  const status = $("rpcStatus");
+  const dot = $("rpcDot"); const status = $("rpcStatus");
   if (dot) { dot.style.background = "var(--neon-green)"; dot.style.boxShadow = "var(--glow-green)"; }
   if (status) status.textContent = "RPC ✓";
-
   log("RPC connected");
   return prov;
 }
 
 async function getDecimals(tokenAddr, prov) {
-  try {
-    const c = new ethers.Contract(tokenAddr, ABIS.ERC20, prov);
-    return await c.decimals();
-  } catch { return 18; }
+  try { const c = new ethers.Contract(tokenAddr, ABIS.ERC20, prov); return await c.decimals(); }
+  catch { return 18; }
 }
 
-/* ===================== WALLET ===================== */
+/* ─────────────────── TOKENS ─────────────────── */
 function getTokenAddr(sym) {
   if (!sym) return null;
   const up = sym.toUpperCase();
@@ -1433,106 +1211,7 @@ function updateTokenLogos() {
   if (tl && tAddr) { tl.src = getTokenLogo(tAddr); tl.alt = $("toToken")?.value; }
 }
 
-function updateWalletUI() {
-  const display = $("walletDisplay");
-  const btn = $("connectWallet");
-  if (!display || !btn) return;
-  if (userAddress) {
-    display.textContent = shortenAddr(userAddress);
-    display.style.color = "var(--neon-cyan)";
-    btn.textContent = "Disconnect";
-    btn.classList.remove("btn-primary");
-    btn.classList.add("btn-ghost");
-    btn.onclick = disconnectWallet;
-  } else {
-    display.textContent = "Not connected";
-    display.style.color = "";
-    btn.textContent = "Connect Wallet";
-    btn.classList.remove("btn-ghost");
-    btn.classList.add("btn-primary");
-    btn.onclick = connectWallet;
-  }
-}
-
-async function connectWallet() {
-  if (isConnecting) { log("Connection in progress…", "warning"); return; }
-  isConnecting = true;
-  const btn = $("connectWallet");
-  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
-
-  try {
-    log("Connecting wallet…");
-
-    if (isMobile() && !window.ethereum) {
-      log("Mobile detected — opening MetaMask…");
-      const url = window.location.href.replace(/\/$/, "");
-      const link = `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, "")}`;
-      if (confirm("Open this page in MetaMask mobile browser?")) window.location.href = link;
-      throw new Error("Please open in MetaMask browser");
-    }
-
-    if (!window.ethereum) {
-      const ok = confirm("No wallet detected. Install MetaMask?");
-      if (ok) window.open("https://metamask.io/download/", "_blank");
-      throw new Error("No wallet found");
-    }
-
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    if (!accounts || !accounts.length) throw new Error("No accounts returned");
-
-    walletProvider = new ethers.BrowserProvider(window.ethereum);
-    signer = await walletProvider.getSigner();
-    userAddress = await signer.getAddress();
-
-    log("✓ Connected: " + shortenAddr(userAddress));
-    updateWalletUI();
-    await loadBalances();
-
-    // Listen for account changes
-    window.ethereum.on("accountsChanged", async (accs) => {
-      if (!accs.length) { await disconnectWallet(); return; }
-      userAddress = accs[0];
-      signer = await walletProvider.getSigner();
-      updateWalletUI();
-      loadBalances();
-    });
-
-    window.ethereum.on("chainChanged", () => window.location.reload());
-
-  } catch (err) {
-    if (!isUserRejection(err)) log("Connection error: " + getErrMsg(err), "error");
-    walletProvider = signer = userAddress = null;
-    updateWalletUI();
-  } finally {
-    isConnecting = false;
-    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
-  }
-}
-
-async function disconnectWallet() {
-  walletProvider = signer = userAddress = null;
-  updateWalletUI();
-  ["balanceUSDC","balanceBFL","balanceMDX","balanceGOLD","balanceDRAGON","balanceUSDCB",
-   "balanceEUROGOLD","balanceSWAPLESS","fromBalance","toBalance","portfolioValue"].forEach(id => {
-    const el = $(id); if (el) el.textContent = "—";
-  });
-  log("Wallet disconnected");
-}
-
-async function autoConnectWallet() {
-  try {
-    if (!window.ethereum) return;
-    const accs = await window.ethereum.request({ method: "eth_accounts" });
-    if (!accs || !accs.length) return;
-    walletProvider = new ethers.BrowserProvider(window.ethereum);
-    signer = await walletProvider.getSigner();
-    userAddress = await signer.getAddress();
-    log("✓ Auto-connected: " + shortenAddr(userAddress));
-    updateWalletUI();
-    await loadBalances();
-  } catch (err) { console.debug("Auto-connect failed:", err); }
-}
-
+/* ─────────────────── BALANCES ─────────────────── */
 async function loadBalances() {
   if (!userAddress || !readProvider) return;
   try {
@@ -1542,13 +1221,10 @@ async function loadBalances() {
     );
     const decs = { USDC:6, BFL:18, USDCB:18, MDX:18, GOLD:18, DRAGON:18, EUROGOLD:18, SWAPLESS:18 };
     const results = await Promise.all(Object.entries(contracts).map(async ([sym, c]) => {
-      try {
-        const bal = await c.balanceOf(userAddress);
-        return [sym, fmtAmt(bal, decs[sym] || 18)];
-      } catch { return [sym, "error"]; }
+      try { const bal = await c.balanceOf(userAddress); return [sym, fmtAmt(bal, decs[sym] || 18)]; }
+      catch { return [sym, "error"]; }
     }));
     const bals = Object.fromEntries(results);
-
     const els = {
       balanceUSDC: bals.USDC, balanceBFL: bals.BFL, balanceMDX: bals.MDX,
       balanceGOLD: bals.GOLD, balanceDRAGON: bals.DRAGON, balanceUSDCB: bals.USDCB,
@@ -1562,7 +1238,7 @@ async function loadBalances() {
   } catch (err) { log("Balance error: " + getErrMsg(err), "error"); }
 }
 
-/* ===================== PAIR RESERVES ===================== */
+/* ─────────────────── PAIR RESERVES ─────────────────── */
 async function loadPairReserves() {
   if (!readProvider) return;
   try {
@@ -1573,7 +1249,6 @@ async function loadPairReserves() {
     ]);
     const dec0 = await getDecimals(token0, readProvider);
     const dec1 = await getDecimals(token1, readProvider);
-
     pairCache = {
       token0: token0.toLowerCase(), token1: token1.toLowerCase(),
       reserve0: BigInt(reserves[0].toString()), reserve1: BigInt(reserves[1].toString()),
@@ -1593,64 +1268,46 @@ function updatePairUI() {
 }
 
 function updatePrice() {
-  if (!pairCache.reserve0 || pairCache.reserve0 === 0n) {
-    const pd = $("priceDisplay"); if (pd) pd.textContent = "PRICE: n/a"; return null;
-  }
+  if (!pairCache.reserve0 || pairCache.reserve0 === 0n) { const pd = $("priceDisplay"); if (pd) pd.textContent = "PRICE: n/a"; return null; }
   try {
     const usdcL = ADDR.USDC.toLowerCase();
-    let price;
     const r0 = parseFloat(ethers.formatUnits(pairCache.reserve0.toString(), pairCache.dec0));
     const r1 = parseFloat(ethers.formatUnits(pairCache.reserve1.toString(), pairCache.dec1));
-    price = pairCache.token0 === usdcL ? r0 / r1 : r1 / r0;
-
-    const pd = $("priceDisplay");
-    if (pd) pd.textContent = `PRICE: $${price.toFixed(6)}`;
+    const price = pairCache.token0 === usdcL ? r0 / r1 : r1 / r0;
+    const pd = $("priceDisplay"); if (pd) pd.textContent = `PRICE: $${price.toFixed(6)}`;
     if (typeof updateChart === "function") updateChart(price);
     return price;
   } catch { return null; }
 }
 
-/* ===================== SWAP OUTPUT ESTIMATE ===================== */
+/* ─────────────────── OUTPUT ESTIMATE ─────────────────── */
 async function updateOutputEstimate() {
   const fromToken = $("fromToken")?.value;
   const toToken   = $("toToken")?.value;
   const amtIn     = $("fromAmount")?.value;
   const toAmt     = $("toAmount");
-
   if (!isValidNum(amtIn)) { if (toAmt) toAmt.value = ""; return; }
-
   const fromAddr = getTokenAddr(fromToken);
   const toAddr   = getTokenAddr(toToken);
-  if (!fromAddr || !toAddr || fromAddr.toLowerCase() === toAddr.toLowerCase()) {
-    if (toAmt) toAmt.value = ""; return;
-  }
-
+  if (!fromAddr || !toAddr || fromAddr.toLowerCase() === toAddr.toLowerCase()) { if (toAmt) toAmt.value = ""; return; }
   try {
     const fromDec = await getDecimals(fromAddr, readProvider);
     const toDec   = await getDecimals(toAddr, readProvider);
     const amtInBig = parseAmt(amtIn, fromDec);
-
     const router = new ethers.Contract(ADDR.ROUTER, ABIS.ROUTER, readProvider);
     const path = buildPath(fromAddr, toAddr);
     const amounts = await router.getAmountsOut(amtInBig, path);
     const output = amounts[amounts.length - 1];
-
     if (toAmt) toAmt.value = fmtAmt(output, toDec);
     displaySwapPath(fromToken, toToken, path);
-  } catch (err) {
-    if (toAmt) toAmt.value = "";
-    log("Estimate error: " + getErrMsg(err), "warning");
-  }
+  } catch (err) { if (toAmt) toAmt.value = ""; log("Estimate error: " + getErrMsg(err), "warning"); }
 }
 
 const debouncedEstimate = debounce(updateOutputEstimate, 500);
 
 function buildPath(fromAddr, toAddr) {
-  const fL = fromAddr.toLowerCase();
-  const tL = toAddr.toLowerCase();
-  const uL = ADDR.USDC.toLowerCase();
-  const bL = ADDR.BFL.toLowerCase();
-
+  const fL = fromAddr.toLowerCase(), tL = toAddr.toLowerCase();
+  const uL = ADDR.USDC.toLowerCase(), bL = ADDR.BFL.toLowerCase();
   if ((fL === uL && tL === bL) || (fL === bL && tL === uL)) return [fromAddr, toAddr];
   if (fL === uL) return [fromAddr, ADDR.BFL, toAddr];
   if (tL === uL) return [fromAddr, ADDR.BFL, toAddr];
@@ -1660,30 +1317,25 @@ function buildPath(fromAddr, toAddr) {
 }
 
 function displaySwapPath(fromSym, toSym, path) {
-  const info = $("swapPathInfo");
-  const text = $("swapPathText");
+  const info = $("swapPathInfo"); const text = $("swapPathText");
   if (!info || !text) return;
   if (path.length <= 2) { info.style.display = "none"; return; }
-
   const symMap = Object.fromEntries(Object.entries(ADDR).map(([k,v]) => [v.toLowerCase(), k]));
   const syms = [fromSym, ...path.slice(1, -1).map(a => symMap[a.toLowerCase()] || "?"), toSym];
   text.textContent = `Route: ${syms.join(" → ")} (${path.length - 1} hops)`;
   info.style.display = "block";
 }
 
-/* ===================== APPROVE ===================== */
+/* ─────────────────── APPROVE ─────────────────── */
 async function handleApprove() {
   if (!signer || !userAddress) { log("Connect wallet first", "warning"); return; }
   if (txInProgress) { log("Transaction in progress", "warning"); return; }
-
   const fromToken = $("fromToken")?.value;
   const amtIn = $("fromAmount")?.value;
   if (!isValidNum(amtIn)) { log("Enter amount to approve", "warning"); return; }
-
   txInProgress = true;
   const btn = $("approveBtn");
   if (btn) { btn.disabled = true; btn.classList.add("loading"); }
-
   try {
     const tokenAddr = getTokenAddr(fromToken);
     const dec = await getDecimals(tokenAddr, readProvider);
@@ -1693,48 +1345,36 @@ async function handleApprove() {
     const tx = await contract.approve(ADDR.ROUTER, amt);
     await tx.wait();
     log("✓ Approved " + fmtNum(amtIn) + " " + fromToken);
-  } catch (err) {
-    if (!isUserRejection(err) && !isPendingReq(err)) log("Approve failed: " + getErrMsg(err), "error");
-  } finally {
-    txInProgress = false;
-    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
-  }
+  } catch (err) { if (!isUserRejection(err) && !isPendingReq(err)) log("Approve failed: " + getErrMsg(err), "error"); }
+  finally { txInProgress = false; if (btn) { btn.disabled = false; btn.classList.remove("loading"); } }
 }
 
-/* ===================== SWAP ===================== */
+/* ─────────────────── SWAP ─────────────────── */
 async function handleSwap() {
   if (txInProgress) { log("Tx in progress", "warning"); return; }
   if (!signer || !userAddress) { log("Connect wallet first", "warning"); return; }
-
   const swapBtn = $("swapBtn");
   txInProgress = true;
   if (swapBtn) { swapBtn.disabled = true; swapBtn.classList.add("loading"); }
-
   try {
     const fromToken = $("fromToken")?.value;
     const toToken   = $("toToken")?.value;
     const amtIn     = $("fromAmount")?.value;
     const slippage  = parseFloat($("slippageTolerance")?.value) || 0.5;
-
     if (!isValidNum(amtIn)) { log("Enter swap amount", "warning"); return; }
     if (fromToken === toToken) { log("Select different tokens", "warning"); return; }
-
     const fromAddr = getTokenAddr(fromToken);
     const toAddr   = getTokenAddr(toToken);
     const fromDec  = await getDecimals(fromAddr, readProvider);
     const toDec    = await getDecimals(toAddr, readProvider);
     const amtInBig = parseAmt(amtIn, fromDec);
     const path     = buildPath(fromAddr, toAddr);
-
-    log("Routing: " + [fromToken, ...path.slice(1,-1).map(a => Object.entries(ADDR).find(([,v])=>v.toLowerCase()===a.toLowerCase())?.[0]||"?"), toToken].join(" → "));
-
     const router = new ethers.Contract(ADDR.ROUTER, ABIS.ROUTER, readProvider);
     const amounts = await router.getAmountsOut(amtInBig, path);
     const expectedOut = amounts[amounts.length - 1];
     const effSlip = path.length > 2 ? slippage * 1.5 : slippage;
     const minOut = (expectedOut * BigInt(Math.floor((100 - effSlip) * 100))) / 10000n;
-
-    // Auto-approve if needed
+    // Auto-approve
     const tokenC = new ethers.Contract(fromAddr, ABIS.ERC20, signer);
     const allowance = await tokenC.allowance(userAddress, ADDR.ROUTER);
     if (allowance < amtInBig) {
@@ -1743,23 +1383,17 @@ async function handleSwap() {
       await approveTx.wait();
       log("✓ Router approved");
     }
-
     const routerSigned = new ethers.Contract(ADDR.ROUTER, ABIS.ROUTER, signer);
     const deadline = Math.floor(Date.now() / 1000) + 1200;
     log("Swapping " + fmtNum(amtIn) + " " + fromToken + "…");
-
     const tx = await routerSigned.swapExactTokensForTokens(amtInBig, minOut, path, userAddress, deadline);
     log("Tx pending: " + tx.hash.slice(0,12) + "…");
     await tx.wait();
     log("✓ Swap complete! Got ~" + fmtAmt(expectedOut, toDec) + " " + toToken);
-
-    // Add to recent txs
     addRecentTx(tx.hash, fromToken + "→" + toToken, fmtAmt(expectedOut, toDec));
-
     if ($("fromAmount")) $("fromAmount").value = "";
     if ($("toAmount"))   $("toAmount").value   = "";
     await Promise.all([loadBalances(), loadPairReserves()]);
-
   } catch (err) {
     if (!isUserRejection(err) && !isPendingReq(err)) {
       const m = getErrMsg(err);
@@ -1774,8 +1408,7 @@ async function handleSwap() {
 }
 
 function addRecentTx(hash, label, amount) {
-  const el = $("recentTxs");
-  if (!el) return;
+  const el = $("recentTxs"); if (!el) return;
   const entry = document.createElement("div");
   entry.style.cssText = "padding:4px 0; border-bottom:1px solid var(--border-dim); font-family:var(--font-mono); font-size:10px;";
   const ts = new Date().toLocaleTimeString();
@@ -1785,10 +1418,9 @@ function addRecentTx(hash, label, amount) {
   if (el.children.length > 10) el.removeChild(el.lastChild);
 }
 
-/* ===================== FLIP ===================== */
+/* ─────────────────── FLIP ─────────────────── */
 function handleFlip() {
-  const ft = $("fromToken"); const tt = $("toToken");
-  if (!ft || !tt) return;
+  const ft = $("fromToken"); const tt = $("toToken"); if (!ft || !tt) return;
   const v = ft.value; ft.value = tt.value; tt.value = v;
   updateTokenLogos();
   if ($("fromAmount")) $("fromAmount").value = "";
@@ -1796,77 +1428,32 @@ function handleFlip() {
   if (userAddress) loadBalances();
 }
 
-/* ===================== CHART ===================== */
+/* ─────────────────── CHART ─────────────────── */
 let priceChart = null;
 let chartData  = { labels: [], prices: [] };
 let currentTf  = "1H";
 
 function initChart() {
-  const canvas = $("priceChart");
-  if (!canvas || typeof Chart === "undefined") return;
+  const canvas = $("priceChart"); if (!canvas || typeof Chart === "undefined") return;
   generateMockData("1H");
   const ctx = canvas.getContext("2d");
-
-  // Neon gradient line
   const lineGrad = ctx.createLinearGradient(0, 0, 1200, 0);
-  lineGrad.addColorStop(0, "#00fff7");
-  lineGrad.addColorStop(0.5, "#d400ff");
-  lineGrad.addColorStop(1, "#ff00c8");
-
+  lineGrad.addColorStop(0, "#00fff7"); lineGrad.addColorStop(0.5, "#d400ff"); lineGrad.addColorStop(1, "#ff00c8");
   const fillGrad = ctx.createLinearGradient(0, 0, 0, 320);
-  fillGrad.addColorStop(0, "rgba(0,255,247,0.18)");
-  fillGrad.addColorStop(0.6, "rgba(212,0,255,0.06)");
-  fillGrad.addColorStop(1, "rgba(0,0,0,0)");
-
+  fillGrad.addColorStop(0, "rgba(0,255,247,0.18)"); fillGrad.addColorStop(0.6, "rgba(212,0,255,0.06)"); fillGrad.addColorStop(1, "rgba(0,0,0,0)");
   priceChart = new Chart(canvas, {
     type: "line",
-    data: {
-      labels: chartData.labels,
-      datasets: [{
-        data: chartData.prices,
-        borderColor: lineGrad,
-        backgroundColor: fillGrad,
-        borderWidth: 2,
-        fill: true,
-        tension: 0.45,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: "#00fff7",
-        pointHoverBorderColor: "#d400ff",
-        pointHoverBorderWidth: 2
-      }]
-    },
+    data: { labels: chartData.labels, datasets: [{ data: chartData.prices, borderColor: lineGrad, backgroundColor: fillGrad, borderWidth: 2, fill: true, tension: 0.45, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: "#00fff7", pointHoverBorderColor: "#d400ff", pointHoverBorderWidth: 2 }] },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       interaction: { intersect: false, mode: "index" },
       plugins: {
         legend: { display: false },
-        tooltip: {
-          backgroundColor: "rgba(4,5,15,0.95)",
-          titleColor: "#00fff7",
-          bodyColor: "#e8f4ff",
-          borderColor: "#00fff7",
-          borderWidth: 1,
-          padding: 10,
-          displayColors: false,
-          callbacks: { label: ctx => `$${ctx.parsed.y.toFixed(6)} USDC` }
-        }
+        tooltip: { backgroundColor: "rgba(4,5,15,0.95)", titleColor: "#00fff7", bodyColor: "#e8f4ff", borderColor: "#00fff7", borderWidth: 1, padding: 10, displayColors: false, callbacks: { label: ctx => `$${ctx.parsed.y.toFixed(6)} USDC` } }
       },
       scales: {
-        x: {
-          grid: { color: "rgba(0,255,247,0.04)", drawBorder: false },
-          ticks: { color: "rgba(0,255,247,0.4)", maxTicksLimit: 8, font: { size: 10, family: "'Space Mono'" } }
-        },
-        y: {
-          position: "right",
-          grid: { color: "rgba(0,255,247,0.04)", drawBorder: false },
-          ticks: {
-            color: "rgba(0,255,247,0.4)",
-            callback: v => "$" + v.toFixed(6),
-            font: { size: 10, family: "'Space Mono'" }
-          }
-        }
+        x: { grid: { color: "rgba(0,255,247,0.04)", drawBorder: false }, ticks: { color: "rgba(0,255,247,0.4)", maxTicksLimit: 8, font: { size: 10, family: "'Space Mono'" } } },
+        y: { position: "right", grid: { color: "rgba(0,255,247,0.04)", drawBorder: false }, ticks: { color: "rgba(0,255,247,0.4)", callback: v => "$" + v.toFixed(6), font: { size: 10, family: "'Space Mono'" } } }
       }
     }
   });
@@ -1877,19 +1464,16 @@ function generateMockData(tf) {
   const now = Date.now();
   const cfg = { "1H": [60, 60e3], "24H": [96, 15*60e3], "7D": [84, 2*3600e3], "30D": [60, 12*3600e3] };
   const [pts, interval] = cfg[tf] || [60, 60e3];
-  const base = 0.0001234;
-  let price = base;
+  const base = 0.0001234; let price = base;
   chartData = { labels: [], prices: [] };
   for (let i = 0; i < pts; i++) {
     const d = new Date(now - (pts - i) * interval);
     let lbl;
     if (tf === "1H" || tf === "24H") lbl = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    else if (tf === "7D") lbl = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     else lbl = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     price *= 1 + (Math.random() - 0.48) * 0.025;
     price = Math.max(base * 0.7, Math.min(price, base * 1.3));
-    chartData.labels.push(lbl);
-    chartData.prices.push(price);
+    chartData.labels.push(lbl); chartData.prices.push(price);
   }
 }
 
@@ -1897,8 +1481,7 @@ function updateChart(price) {
   if (!priceChart) return;
   const now = new Date();
   const lbl = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-  chartData.labels.push(lbl);
-  chartData.prices.push(price);
+  chartData.labels.push(lbl); chartData.prices.push(price);
   const max = { "1H": 60, "24H": 96, "7D": 84, "30D": 60 }[currentTf] || 60;
   if (chartData.labels.length > max) { chartData.labels.shift(); chartData.prices.shift(); }
   priceChart.data.labels = chartData.labels;
@@ -1911,58 +1494,35 @@ function changeTimeframe(tf) {
   document.querySelectorAll(".timeframe-btn").forEach(b => b.classList.remove("active"));
   document.querySelector(`[data-timeframe="${tf}"]`)?.classList.add("active");
   generateMockData(tf);
-  if (priceChart) {
-    priceChart.data.labels = chartData.labels;
-    priceChart.data.datasets[0].data = chartData.prices;
-    priceChart.update();
-  }
+  if (priceChart) { priceChart.data.labels = chartData.labels; priceChart.data.datasets[0].data = chartData.prices; priceChart.update(); }
   log("Timeframe: " + tf);
 }
 
-/* ===================== PERIODIC UPDATES ===================== */
+/* ─────────────────── PERIODIC UPDATES ─────────────────── */
 function startUpdates() {
-  setInterval(async () => {
-    if (!readProvider) return;
-    try { await loadPairReserves(); } catch {}
-  }, 15000);
-
+  setInterval(async () => { if (!readProvider) return; try { await loadPairReserves(); } catch {} }, 15000);
   setInterval(async () => {
     if (!readProvider) return;
     try {
       const fee = await readProvider.getFeeData();
       const gwei = ethers.formatUnits(fee.gasPrice || 0n, "gwei");
-      const gp = $("gasPrice");
-      if (gp) gp.textContent = parseFloat(gwei).toFixed(2) + " gwei";
+      const gp = $("gasPrice"); if (gp) gp.textContent = parseFloat(gwei).toFixed(2) + " gwei";
     } catch {}
   }, 10000);
-
   setInterval(async () => {
     if (!readProvider) return;
-    try {
-      const bn = await readProvider.getBlockNumber();
-      const cb = $("currentBlock");
-      if (cb) cb.textContent = bn.toLocaleString();
-    } catch {}
+    try { const bn = await readProvider.getBlockNumber(); const cb = $("currentBlock"); if (cb) cb.textContent = bn.toLocaleString(); }
+    catch {}
   }, 30000);
 }
 
-/* ===================== EVENT LISTENERS ===================== */
+/* ─────────────────── EVENTS ─────────────────── */
 function setupEvents() {
-  // Token selects
   ["fromToken","toToken"].forEach(id => {
     const el = $(id);
-    if (el) el.addEventListener("change", () => {
-      updateTokenLogos();
-      debouncedEstimate();
-      if (userAddress) loadBalances();
-    });
+    if (el) el.addEventListener("change", () => { updateTokenLogos(); debouncedEstimate(); if (userAddress) loadBalances(); });
   });
-
-  // Amount input
-  const fa = $("fromAmount");
-  if (fa) fa.addEventListener("input", debouncedEstimate);
-
-  // Buttons
+  const fa = $("fromAmount"); if (fa) fa.addEventListener("input", debouncedEstimate);
   $("swapBtn")?.addEventListener("click", handleSwap);
   $("approveBtn")?.addEventListener("click", handleApprove);
   $("swapFlip")?.addEventListener("click", handleFlip);
@@ -1971,97 +1531,50 @@ function setupEvents() {
   $("refreshReserves")?.addEventListener("click", loadPairReserves);
   $("mintBfl")?.addEventListener("click", () => log("Mint BFL not enabled in this build", "warning"));
   $("addLiquidity")?.addEventListener("click", () => log("Add liquidity not enabled in this build", "warning"));
-
-  // Connect wallet
-  $("connectWallet")?.addEventListener("click", async () => {
-    if (userAddress) await disconnectWallet();
-    else await connectWallet();
-  });
-
-  // Slippage
-  $("slippageTolerance")?.addEventListener("input", () => {
-    const sd = $("slippageDisplay");
-    if (sd) sd.textContent = $("slippageTolerance").value + "%";
-  });
-
-  // Timeframe
-  document.querySelectorAll(".timeframe-btn").forEach(b => {
-    b.addEventListener("click", e => changeTimeframe(e.currentTarget.getAttribute("data-timeframe")));
-  });
-
-  // Pair shortcuts
+  $("slippageTolerance")?.addEventListener("input", () => { const sd = $("slippageDisplay"); if (sd) sd.textContent = $("slippageTolerance").value + "%"; });
+  document.querySelectorAll(".timeframe-btn").forEach(b => { b.addEventListener("click", e => changeTimeframe(e.currentTarget.getAttribute("data-timeframe"))); });
   document.querySelectorAll(".pair-btn").forEach(b => {
     b.addEventListener("click", e => {
       const [f, t] = e.currentTarget.getAttribute("data-pair").split("-");
       const ft = $("fromToken"); const tt = $("toToken");
-      if (ft) ft.value = f;
-      if (tt) tt.value = t;
-      updateTokenLogos();
-      debouncedEstimate();
+      if (ft) ft.value = f; if (tt) tt.value = t;
+      updateTokenLogos(); debouncedEstimate();
     });
   });
-
-  // Mobile MetaMask link
-  $("openInMetaMask")?.addEventListener("click", () => {
-    const url = window.location.href.replace(/\/$/, "");
-    window.location.href = `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, "")}`;
-  });
-
   updateTokenLogos();
 }
 
-/* ===================== INIT ===================== */
-document.addEventListener("DOMContentLoaded", async () => {
-  log("MONAD DEX initializing…");
-
-  if (isMobile() && !window.ethereum) {
-    const n = $("mobileNotice"); if (n) n.style.display = "block";
-  }
-
-  try {
-    await initReadProvider();
-  } catch (err) {
-    log("RPC failed — limited mode", "warning");
-  }
-
-  if (typeof Chart !== "undefined") initChart();
-
-  try { await loadPairReserves(); } catch (err) { log("Pair load skipped: " + err.message, "warning"); }
-
-  setupEvents();
-  await autoConnectWallet();
-  startUpdates();
-  startLogoRotation();
-
-  log("✓ MONAD DEX ready");
-});
-
-/* ===================== ROTATING COIN LOGO ===================== */
+/* ─────────────────── LOGO ROTATION ─────────────────── */
 function startLogoRotation() {
   const logos = [
-    "https://files.catbox.moe/ujzf30.gif",   // USDC
-    "https://files.catbox.moe/lk7mrk.png",   // BFL
-    "https://files.catbox.moe/phcdln.png",   // GOLD
-    "https://files.catbox.moe/bb1fsy.png",   // DRAGON
-    "https://files.catbox.moe/g3f9h8.png",   // MDX
-    "https://files.catbox.moe/lrgkws.jpeg",  // EUROGOLD
-    "https://files.catbox.moe/89qw9n.png",   // USDCB
-    "https://files.catbox.moe/52ogvm.png"    // SWAPLESS
+    "https://files.catbox.moe/ujzf30.gif",
+    "https://files.catbox.moe/lk7mrk.png",
+    "https://files.catbox.moe/phcdln.png",
+    "https://files.catbox.moe/bb1fsy.png",
+    "https://files.catbox.moe/g3f9h8.png",
+    "https://files.catbox.moe/lrgkws.jpeg",
+    "https://files.catbox.moe/89qw9n.png",
+    "https://files.catbox.moe/52ogvm.png"
   ];
   let idx = 0;
-  const img = $("logoImg");
-  if (!img) return;
-
+  const img = $("logoImg"); if (!img) return;
   setInterval(() => {
-    // Fade out
     img.style.opacity = "0";
-    setTimeout(() => {
-      idx = (idx + 1) % logos.length;
-      img.src = logos[idx];
-      img.style.opacity = "1";
-    }, 300);
+    setTimeout(() => { idx = (idx + 1) % logos.length; img.src = logos[idx]; img.style.opacity = "1"; }, 300);
   }, 2200);
 }
+
+/* ─────────────────── INIT ─────────────────── */
+document.addEventListener("DOMContentLoaded", async () => {
+  log("MONAD DEX initializing…");
+  try { await initReadProvider(); } catch (err) { log("RPC failed — limited mode", "warning"); }
+  if (typeof Chart !== "undefined") initChart();
+  try { await loadPairReserves(); } catch (err) { log("Pair load skipped: " + err.message, "warning"); }
+  setupEvents();
+  startUpdates();
+  startLogoRotation();
+  log("✓ MONAD DEX ready — connect wallet via thirdweb");
+});
 
 })();
 </script>
